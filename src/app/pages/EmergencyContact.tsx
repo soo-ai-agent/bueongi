@@ -56,7 +56,7 @@ export function EmergencyContact() {
         <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-[20px] flex gap-3">
           <AlertCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
           <p className="text-slate-300 text-sm leading-relaxed">
-            위급 상황 발생 시 '긴급 도움' 버튼을 누르면 여기에 등록된 연락처로 위치 정보와 함께 긴급 알림이 전송됩니다. (최대 {MAX_CONTACTS}명)
+            위급 상황에서 길안내 화면의 '긴급 도움'을 누르면 112 전화, 보호자에게 바로 전화, 위치 링크가 담긴 긴급 메시지 공유를 한 번에 할 수 있어요. 여기에 보호자를 등록해 두세요. (최대 {MAX_CONTACTS}명)
           </p>
         </div>
 

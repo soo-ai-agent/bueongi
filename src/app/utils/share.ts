@@ -50,3 +50,12 @@ export async function shareOrCopyText(opts: {
     return 'failed';
   }
 }
+
+/**
+ * 위급 상황에서 보호자에게 보낼 긴급 메시지 본문을 만든다.
+ * 목적지를 반드시 포함해 수신자가 사용자의 행선지를 알 수 있게 한다(안전 회귀 가드 대상).
+ */
+export function buildEmergencyShareText(destName: string): string {
+  const where = destName.trim() || '목적지 미상';
+  return `[부엉이 긴급] 도움이 필요합니다. 목적지: ${where}`;
+}

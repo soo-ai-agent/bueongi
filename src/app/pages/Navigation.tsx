@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
-import { shareOrCopyText } from '../utils/share';
+import { shareOrCopyText, buildEmergencyShareText } from '../utils/share';
 
 const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
@@ -47,6 +47,25 @@ export function NavigationScreen() {
       toast.error('알림 전송에 실패했어요. 다시 시도해 주세요.');
     }
     // 'cancelled'(사용자 취소)는 정상 흐름 → 안내 없음
+  };
+
+  // 위급 상황: 등록 연락처로 위치 링크가 담긴 긴급 메시지를 실제로 공유(자동 전송 날조 금지).
+  const handleEmergencyShare = async () => {
+    const outcome = await shareOrCopyText({
+      title: '부엉이 긴급',
+      text: buildEmergencyShareText(destName),
+      url: `${window.location.origin}/share`,
+    });
+    if (outcome === 'shared') {
+      toast('긴급 메시지를 공유했어요.', { icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" /> });
+    } else if (outcome === 'copied') {
+      toast('긴급 메시지를 복사했어요. 보호자에게 보내 주세요.', {
+        icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+      });
+    } else if (outcome === 'failed') {
+      toast.error('긴급 메시지 공유에 실패했어요. 112로 전화해 주세요.');
+    }
+    // 'cancelled'는 무안내
   };
 
   return (
@@ -185,6 +204,19 @@ export function NavigationScreen() {
               </div>
             </button>
           )}
+
+          <button
+            onClick={handleEmergencyShare}
+            className="w-full bg-slate-700 hover:bg-slate-600 text-slate-50 border border-red-500/40 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+          >
+            <div className="bg-red-500/20 p-3 rounded-full border border-red-500/30">
+              <Share2 className="w-6 h-6 text-red-300" />
+            </div>
+            <div className="text-left flex-1">
+              <div className="text-lg font-bold">긴급 메시지 공유</div>
+              <div className="text-slate-300 text-sm mt-1 font-medium">위치 링크와 함께 도움을 요청해요</div>
+            </div>
+          </button>
 
           <div className="grid grid-cols-3 gap-3 mt-3">
             {[

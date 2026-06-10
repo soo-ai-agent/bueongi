@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { isUserCancelledShare, shareOrCopyText } from './share';
+import { isUserCancelledShare, shareOrCopyText, buildEmergencyShareText } from './share';
 
 describe('isUserCancelledShare', () => {
   it('사용자 취소(AbortError)는 true → 호출부 조용히 종료', () => {
@@ -66,5 +66,19 @@ describe('shareOrCopyText', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     const r = await shareOrCopyText({ title: 't', text: 'msg' });
     expect(r).toBe('failed');
+  });
+});
+
+describe('buildEmergencyShareText', () => {
+  it('목적지를 반드시 포함한다(수신자가 행선지를 알 수 있도록)', () => {
+    const msg = buildEmergencyShareText('강남역 2번 출구');
+    expect(msg).toContain('강남역 2번 출구');
+    expect(msg).toContain('부엉이 긴급');
+    expect(msg).toContain('도움이 필요합니다');
+  });
+
+  it('목적지가 비어도 빈 라벨 없이 안전한 기본 문구를 보장', () => {
+    expect(buildEmergencyShareText('')).toContain('목적지 미상');
+    expect(buildEmergencyShareText('   ')).toContain('목적지 미상');
   });
 });
