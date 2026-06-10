@@ -89,13 +89,11 @@ export function MyPage() {
         <section>
           <h3 className="text-slate-200 font-bold mb-3 px-1">설정 및 안내</h3>
           <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3 text-slate-100 font-semibold">
-                <div className="p-2.5 bg-slate-800 rounded-full text-slate-300"><Bell className="w-5 h-5" /></div>
-                <span>위치 공유 알림</span>
-              </div>
-              <div className="w-12 h-6 bg-emerald-500 rounded-full relative shadow-inner">
-                <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+            <div className="flex items-center gap-3 p-5">
+              <div className="p-2.5 bg-slate-800 rounded-full text-slate-300 shrink-0"><Bell className="w-5 h-5" /></div>
+              <div className="flex-1">
+                <div className="text-slate-100 font-semibold">위치 공유</div>
+                <div className="text-slate-400 text-sm mt-0.5 leading-relaxed">안심귀가 중 '공유하기'를 누르면 보호자에게 위치 링크가 직접 전송돼요.</div>
               </div>
             </div>
             
