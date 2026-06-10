@@ -5,12 +5,13 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import { Tag } from '../components/ui/Tag';
 import { mockRoutes } from './RouteComparison';
+import { resolveRoute } from '../utils/routeSelection';
 import { useState } from 'react';
 
 export function RouteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const route = mockRoutes.find(r => r.id === id) || mockRoutes[0];
+  const route = resolveRoute(mockRoutes, id) ?? mockRoutes[0];
   const [sheetOpen, setSheetOpen] = useState(true);
 
   // Example POIs specific to route detail
@@ -58,7 +59,7 @@ export function RouteDetail() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button size="lg" className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-[24px]" onClick={() => navigate('/navigate')}>
+            <Button size="lg" className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-[24px]" onClick={() => navigate('/navigate', { state: { routeId: route.id } })}>
               <Navigation2 className="w-6 h-6 mr-2" />
               안심귀가 시작
             </Button>

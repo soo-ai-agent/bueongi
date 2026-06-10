@@ -3,21 +3,26 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, buildEmergencyShareText } from '../utils/share';
+import { mockRoutes } from './RouteComparison';
+import { resolveRoute, parseEtaMinutes } from '../utils/routeSelection';
 
 const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
 export function NavigationScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { destination, primaryContact } = useApp();
   const destName = destination?.name ?? '목적지';
+  // RouteDetail에서 선택한 경로를 길안내로 이어받는다(없으면 추천 경로로 폴백).
+  const route = resolveRoute(mockRoutes, location.state?.routeId) ?? mockRoutes[0];
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(24); // mins
+  const [timeLeft, setTimeLeft] = useState(() => parseEtaMinutes(route.time, 24)); // mins
 
   // Mock progress
   useEffect(() => {
@@ -84,7 +89,7 @@ export function NavigationScreen() {
 
       <div className="flex-1 w-full h-full relative">
         {/* Mock Map with active user dot */}
-        <MapMock showRoute active routeType="safe" pois={[
+        <MapMock showRoute active routeType={route.type as any} pois={[
           { type: 'cctv', x: 40, y: 65 },
           { type: 'bell', x: 45, y: 60 }
         ]} />
@@ -104,10 +109,10 @@ export function NavigationScreen() {
       <div className="absolute bottom-0 inset-x-0 bg-slate-700 rounded-t-[32px] p-6 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] border-t border-slate-600 z-20">
         <div className="flex justify-between items-end mb-6">
           <div>
-            <p className="text-slate-300 text-sm mb-1 font-medium">{destName}로 가는 중</p>
+            <p className="text-slate-300 text-sm mb-1 font-medium">{destName}로 가는 중 · {route.name}</p>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-slate-50">{timeLeft}<span className="text-2xl text-slate-400">분</span></span>
-              <span className="text-slate-300 text-lg font-medium">남음 (1.0km)</span>
+              <span className="text-slate-300 text-lg font-medium">남음 ({route.dist})</span>
             </div>
           </div>
         </div>

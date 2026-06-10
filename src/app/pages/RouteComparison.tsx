@@ -1,8 +1,9 @@
-import { ArrowLeft, Video, Lightbulb, TrendingUp, AlertTriangle, Search } from 'lucide-react';
+import { ArrowLeft, Video, Lightbulb, TrendingUp, AlertTriangle, Search, MapPin } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { MapMock } from '../components/map/MapMock';
 import { Tag } from '../components/ui/Tag';
+import { Button } from '../components/ui/Button';
 import { useApp } from '../store/appStore';
 
 export type RouteType = 'safe' | 'main' | 'fast';
@@ -64,6 +65,23 @@ export const mockRoutes: MockRoute[] = [
 export function RouteComparison() {
   const navigate = useNavigate();
   const { destination } = useApp();
+
+  // 목적지가 없으면(직접 진입·목적지 미선택) 가짜 경로 노출 대신 검색으로 유도
+  // (ConfirmLocation 과 동일한 목적지 컨텍스트 가드).
+  if (!destination) {
+    return (
+      <div className="flex flex-col h-full bg-slate-800 items-center justify-center text-center px-8 gap-4">
+        <div className="w-14 h-14 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400">
+          <MapPin className="w-6 h-6" />
+        </div>
+        <p className="text-slate-300 font-medium">선택된 목적지가 없어요</p>
+        <p className="text-slate-400 text-sm">목적지를 검색하면 안심 경로를 안내해 드려요.</p>
+        <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
+          목적지 검색하기
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-800">
