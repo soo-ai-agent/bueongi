@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRoute, parseEtaMinutes } from './routeSelection';
+import { resolveRoute, parseEtaMinutes, getRouteDestinationContext } from './routeSelection';
 import type { MockRoute } from '../pages/RouteComparison';
 
 const routes: MockRoute[] = [
@@ -36,5 +36,31 @@ describe('parseEtaMinutes', () => {
   it('숫자 없으면 fallback', () => {
     expect(parseEtaMinutes('곧 도착', 5)).toBe(5);
     expect(parseEtaMinutes('')).toBe(0);
+  });
+});
+
+describe('getRouteDestinationContext', () => {
+  it('목적지가 있으면 hasDestination=true + 실제 이름 표시', () => {
+    const ctx = getRouteDestinationContext({ name: '강남역 2번 출구', address: '서울 강남구' });
+    expect(ctx.hasDestination).toBe(true);
+    expect(ctx.destinationName).toBe('강남역 2번 출구');
+  });
+
+  it('목적지가 null이면 hasDestination=false + 폴백명(가드 신호)', () => {
+    const ctx = getRouteDestinationContext(null);
+    expect(ctx.hasDestination).toBe(false);
+    expect(ctx.destinationName).toBe('목적지');
+  });
+
+  it('undefined(직접 진입·state 소실)도 가드 신호', () => {
+    const ctx = getRouteDestinationContext(undefined);
+    expect(ctx.hasDestination).toBe(false);
+    expect(ctx.destinationName).toBe('목적지');
+  });
+
+  it('이름이 공백뿐이면 존재해도 표시명은 폴백(깨진 라벨 방지)', () => {
+    const ctx = getRouteDestinationContext({ name: '   ', address: '서울 어딘가' });
+    expect(ctx.hasDestination).toBe(true);
+    expect(ctx.destinationName).toBe('목적지');
   });
 });
