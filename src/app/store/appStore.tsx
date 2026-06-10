@@ -64,6 +64,23 @@ function loadState(): AppState {
   }
 }
 
+/**
+ * 연락처를 삭제한 다음 상태를 만들고 영속을 시도한다(순수 — provider 밖에서 테스트 가능).
+ * 영속 실패(persisted=false) 시 호출부가 거짓 "삭제됨" 대신 정직 안내를 하도록 표면화한다.
+ * (삭제는 payload 축소라 quota 초과는 드물지만, Safari 프라이빗 모드는 setItem이 무조건
+ *  throw → 삭제 미영속 → 새로고침 시 삭제한 연락처 재출현. 안전앱 거짓확신을 막아야 한다.)
+ */
+export function removeContactFromState(
+  state: AppState,
+  id: number,
+): { next: AppState; persisted: boolean } {
+  const next: AppState = {
+    ...state,
+    contacts: state.contacts.filter((c) => c.id !== id),
+  };
+  return { next, persisted: persistAppState(STORAGE_KEY, next) };
+}
+
 interface AppStore extends AppState {
   /** 목적지 선택 + 최근 목적지에 반영 */
   selectDestination: (dest: Destination) => void;
@@ -71,7 +88,8 @@ interface AppStore extends AppState {
   setSavedPlace: (key: SavedPlaceKey, address: string | null) => boolean;
   /** added: 등록 여부(정원 초과 시 false), persisted: 영속 성공 여부(false면 비영속) */
   addContact: (name: string, phone: string) => { added: boolean; persisted: boolean };
-  removeContact: (id: number) => void;
+  /** @returns 영속(localStorage 저장) 성공 여부 — false면 비영속(새로고침 시 삭제가 되돌아갈 수 있음) */
+  removeContact: (id: number) => boolean;
   /** 1순위 긴급 연락처(없으면 null) */
   primaryContact: EmergencyContact | null;
 }
@@ -118,8 +136,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { added: true, persisted };
   };
 
-  const removeContact = (id: number) => {
-    setState((prev) => ({ ...prev, contacts: prev.contacts.filter((c) => c.id !== id) }));
+  const removeContact = (id: number): boolean => {
+    // setSavedPlace/addContact와 동일하게 동기 persist로 영속 성공여부를 표면화한다.
+    // 비영속(Safari 프라이빗 모드 등)인데 "삭제됨"으로 단언하면 새로고침 시 삭제한
+    // 연락처가 되살아나 위급 시 의도치 않은 사람에게 알림이 갈 수 있다(안전 거짓확신).
+    const { next, persisted } = removeContactFromState(state, id);
+    setState(next);
+    return persisted;
   };
 
   const value: AppStore = {

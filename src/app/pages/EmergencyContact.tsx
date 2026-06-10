@@ -87,7 +87,13 @@ export function EmergencyContact() {
                 </div>
               </div>
               <button
-                onClick={() => removeContact(contact.id)}
+                onClick={() => {
+                  // 삭제 미영속(프라이빗 모드 등) 시 거짓 "삭제됨" 금지 — 새로고침 재출현 가능성을 정직 고지.
+                  const persisted = removeContact(contact.id);
+                  if (!persisted) {
+                    toast.error('저장 공간 문제로 삭제가 저장되지 않았어요. 새로고침하면 다시 보일 수 있어요. 브라우저 설정(프라이빗 모드 등)을 확인해 주세요.');
+                  }
+                }}
                 aria-label={`${contact.name} 삭제`}
                 className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
               >
