@@ -1,13 +1,23 @@
 import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { isUserCancelledShare, buildReturnShareText } from '../utils/share';
 
+// 공유 상태: 수신 여부가 아닌 '사용자가 취한 행동'만 정직하게 표시(거짓 "전달됨" 금지).
+type ShareAction = 'idle' | 'shared' | 'copied';
+const SHARE_STATUS_LABEL: Record<ShareAction, string> = {
+  idle: '아직 공유 전',
+  shared: '방금 공유함',
+  copied: '메시지 복사함',
+};
+
 export function ShareStatus() {
   const navigate = useNavigate();
   const { destination } = useApp();
   const destName = destination?.name ?? '목적지';
+  const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
 
   // 공유 메시지 (보호자에게 전달될 안심귀가 상태)
   const shareMessage = buildReturnShareText(destName);
@@ -19,6 +29,7 @@ export function ShareStatus() {
     if (navigator.share) {
       try {
         await navigator.share({ title: '부엉이 안심귀가', text: shareMessage, url: shareUrl });
+        setShareStatus('shared');
         return;
       } catch (err) {
         // 사용자 취소(AbortError)는 정상 → 조용히 종료.
@@ -39,6 +50,7 @@ export function ShareStatus() {
   const copyToClipboard = async (successMsg: string) => {
     try {
       await navigator.clipboard.writeText(shareText);
+      setShareStatus('copied');
       toast(successMsg, {
         icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
         duration: 2500,
@@ -84,7 +96,16 @@ export function ShareStatus() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-300 font-medium">공유 상태</span>
-              <span className="text-slate-200 font-bold bg-slate-600 px-3 py-1.5 rounded-full text-sm">아직 공유 전</span>
+              <span
+                className={`font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 ${
+                  shareStatus === 'idle'
+                    ? 'text-slate-200 bg-slate-600'
+                    : 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/30'
+                }`}
+              >
+                {shareStatus !== 'idle' && <CheckCircle2 className="w-4 h-4" />}
+                {SHARE_STATUS_LABEL[shareStatus]}
+              </span>
             </div>
           </div>
         </div>
