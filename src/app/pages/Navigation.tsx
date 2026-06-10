@@ -5,9 +5,14 @@ import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Ho
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
+import { useApp } from '../store/appStore';
+
+const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
 export function NavigationScreen() {
   const navigate = useNavigate();
+  const { destination, primaryContact } = useApp();
+  const destName = destination?.name ?? '목적지';
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(24); // mins
@@ -56,7 +61,7 @@ export function NavigationScreen() {
       <div className="absolute bottom-0 inset-x-0 bg-slate-700 rounded-t-[32px] p-6 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] border-t border-slate-600 z-20">
         <div className="flex justify-between items-end mb-6">
           <div>
-            <p className="text-slate-300 text-sm mb-1 font-medium">강남역 2번 출구로 가는 중</p>
+            <p className="text-slate-300 text-sm mb-1 font-medium">{destName}로 가는 중</p>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-slate-50">{timeLeft}<span className="text-2xl text-slate-400">분</span></span>
               <span className="text-slate-300 text-lg font-medium">남음 (1.0km)</span>
@@ -86,7 +91,7 @@ export function NavigationScreen() {
           </div>
           <h2 className="text-2xl font-bold text-slate-50 mb-2">안전하게 도착하셨군요!</h2>
           <p className="text-slate-300 mb-8 leading-relaxed">
-            부엉이가 보호자(아빠)에게<br />귀가 완료 알림 메시지를 전송했습니다.
+            부엉이가 보호자{primaryContact ? `(${primaryContact.name})` : ''}에게<br />귀가 완료 알림 메시지를 전송했습니다.
           </p>
           <Button size="lg" fullWidth className="h-16 rounded-[24px]" onClick={() => navigate('/home', { state: { showAdPopup: true } })}>
             홈으로 돌아가기
@@ -97,7 +102,10 @@ export function NavigationScreen() {
       {/* Emergency Bottom Sheet */}
       <BottomSheet isOpen={emergencyOpen} onClose={() => setEmergencyOpen(false)} title="긴급 도움">
         <div className="flex flex-col gap-4 pb-2">
-          <button className="w-full bg-red-500 hover:bg-red-400 text-white rounded-[24px] p-6 flex items-center gap-5 transition-colors shadow-sm active:scale-[0.98]">
+          <a
+            href="tel:112"
+            className="w-full bg-red-500 hover:bg-red-400 text-white rounded-[24px] p-6 flex items-center gap-5 transition-colors shadow-sm active:scale-[0.98]"
+          >
             <div className="bg-white/20 p-4 rounded-full">
               <PhoneCall className="w-8 h-8" />
             </div>
@@ -105,17 +113,35 @@ export function NavigationScreen() {
               <div className="text-2xl font-bold">112 전화</div>
               <div className="text-red-100 font-medium mt-1">경찰에 즉시 연결됩니다</div>
             </div>
-          </button>
+          </a>
 
-          <button className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]">
-            <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
-              <Phone className="w-6 h-6 text-slate-200" />
-            </div>
-            <div className="text-left flex-1">
-              <div className="text-lg font-bold">보호자에게 연락</div>
-              <div className="text-slate-300 text-sm mt-1 font-medium">아빠</div>
-            </div>
-          </button>
+          {primaryContact ? (
+            <a
+              href={`tel:${sanitizePhone(primaryContact.phone)}`}
+              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+            >
+              <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
+                <Phone className="w-6 h-6 text-slate-200" />
+              </div>
+              <div className="text-left flex-1">
+                <div className="text-lg font-bold">보호자에게 연락</div>
+                <div className="text-slate-300 text-sm mt-1 font-medium">{primaryContact.name}</div>
+              </div>
+            </a>
+          ) : (
+            <button
+              onClick={() => navigate('/emergency-contacts')}
+              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+            >
+              <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
+                <Phone className="w-6 h-6 text-slate-200" />
+              </div>
+              <div className="text-left flex-1">
+                <div className="text-lg font-bold">보호자 등록하기</div>
+                <div className="text-slate-300 text-sm mt-1 font-medium">긴급 연락처가 없어요</div>
+              </div>
+            </button>
+          )}
 
           <div className="grid grid-cols-3 gap-3 mt-3">
             {[

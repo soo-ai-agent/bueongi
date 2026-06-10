@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { cn } from './Button';
+import { cn } from './utils';
 
 interface BottomSheetProps {
   isOpen: boolean;

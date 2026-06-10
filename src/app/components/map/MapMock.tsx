@@ -1,4 +1,4 @@
-import { cn } from '../ui/Button';
+import { cn } from '../ui/utils';
 import { Video, Bell, Store, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 

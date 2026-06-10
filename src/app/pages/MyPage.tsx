@@ -1,8 +1,16 @@
 import { ArrowLeft, Home, GraduationCap, Briefcase, Phone, Bell, ChevronRight, ShieldAlert, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useApp } from '../store/appStore';
 
 export function MyPage() {
   const navigate = useNavigate();
+  const { savedPlaces, primaryContact } = useApp();
+
+  const places = [
+    { icon: <Home className="w-5 h-5" />, label: '집', value: savedPlaces.home.address, isSet: savedPlaces.home.address != null },
+    { icon: <GraduationCap className="w-5 h-5" />, label: '학교', value: savedPlaces.school.address, isSet: savedPlaces.school.address != null },
+    { icon: <Briefcase className="w-5 h-5" />, label: '회사', value: savedPlaces.work.address, isSet: savedPlaces.work.address != null },
+  ];
 
   return (
     <div className="flex flex-col h-full bg-slate-800">
@@ -30,13 +38,9 @@ export function MyPage() {
         <section>
           <h3 className="text-slate-200 font-bold mb-3 px-1">자주 가는 장소</h3>
           <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
-            {[
-              { icon: <Home className="w-5 h-5" />, label: '집', value: '서울 강남구 역삼로', isSet: true },
-              { icon: <GraduationCap className="w-5 h-5" />, label: '학교', value: '미설정', isSet: false },
-              { icon: <Briefcase className="w-5 h-5" />, label: '회사', value: '미설정', isSet: false },
-            ].map((item, i) => (
-              <div 
-                key={i} 
+            {places.map((item, i) => (
+              <div
+                key={i}
                 onClick={() => navigate('/place-search')}
                 className="flex items-center gap-4 p-5 hover:bg-slate-600 transition-colors cursor-pointer group"
               >
@@ -44,7 +48,7 @@ export function MyPage() {
                 <div className="flex-1">
                   <div className="text-slate-50 font-bold">{item.label}</div>
                   <div className={`text-sm mt-0.5 ${item.isSet ? 'text-slate-300' : 'text-slate-400'}`}>
-                    {item.value}
+                    {item.value ?? '미설정'}
                   </div>
                 </div>
                 {!item.isSet ? (
@@ -68,10 +72,10 @@ export function MyPage() {
             <div className="flex items-center gap-4 p-5">
               <div className="p-2.5 bg-red-500/20 rounded-full text-red-400 border border-red-500/30"><Phone className="w-5 h-5" /></div>
               <div className="flex-1">
-                <div className="text-slate-50 font-bold">아빠</div>
-                <div className="text-slate-300 text-sm mt-0.5">010-1234-5678</div>
+                <div className="text-slate-50 font-bold">{primaryContact?.name ?? '미등록'}</div>
+                <div className="text-slate-300 text-sm mt-0.5">{primaryContact?.phone ?? '긴급 연락처를 등록해 주세요'}</div>
               </div>
-              <button 
+              <button
                 onClick={() => navigate('/emergency-contacts')}
                 className="px-4 py-2 bg-slate-600 border border-slate-500 text-slate-200 text-sm rounded-[16px] font-bold hover:bg-slate-500 active:scale-95 transition-all"
               >

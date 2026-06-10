@@ -1,9 +1,29 @@
 import { ArrowLeft, Video, Lightbulb, TrendingUp, AlertTriangle, Search } from 'lucide-react';
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { MapMock } from '../components/map/MapMock';
 import { Tag } from '../components/ui/Tag';
+import { useApp } from '../store/appStore';
 
-export const mockRoutes = [
+export type RouteType = 'safe' | 'main' | 'fast';
+
+export interface RouteTag {
+  text: string;
+  icon?: ReactNode;
+  variant: 'default' | 'mint' | 'blue' | 'yellow' | 'outline';
+}
+
+export interface MockRoute {
+  id: string;
+  name: string;
+  time: string;
+  dist: string;
+  desc: string;
+  tags: RouteTag[];
+  type: RouteType;
+}
+
+export const mockRoutes: MockRoute[] = [
   {
     id: '1',
     name: '추천 경로',
@@ -39,10 +59,11 @@ export const mockRoutes = [
     ],
     type: 'fast'
   }
-] as const;
+];
 
 export function RouteComparison() {
   const navigate = useNavigate();
+  const { destination } = useApp();
 
   return (
     <div className="flex flex-col h-full bg-slate-800">
@@ -61,7 +82,7 @@ export function RouteComparison() {
           <span className="text-slate-200 text-sm font-medium whitespace-nowrap">현재 위치</span>
           <span className="text-slate-400 mx-1 shrink-0">→</span>
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shrink-0" />
-          <span className="text-slate-50 text-sm font-bold flex-1 truncate">강남역 2번 출구</span>
+          <span className="text-slate-50 text-sm font-bold flex-1 truncate">{destination?.name ?? '목적지 검색'}</span>
           <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-200 shrink-0 transition-colors" />
         </div>
       </header>

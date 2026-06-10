@@ -3,10 +3,12 @@ import { Button } from '../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useApp, type Destination, type SavedPlaceKey } from '../store/appStore';
 
 export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { savedPlaces, recentDestinations, selectDestination } = useApp();
   const [showPopupAd, setShowPopupAd] = useState(false);
 
   useEffect(() => {
@@ -18,16 +20,32 @@ export function Home() {
     }
   }, [location]);
 
-  const quickPlaces = [
-    { icon: <HomeIcon className="w-6 h-6" />, label: '집', color: 'text-blue-400', bg: 'bg-blue-500/10', isSet: true },
-    { icon: <GraduationCap className="w-6 h-6" />, label: '학교', color: 'text-emerald-400', bg: 'bg-emerald-500/10', isSet: false },
-    { icon: <Briefcase className="w-6 h-6" />, label: '회사', color: 'text-amber-400', bg: 'bg-amber-500/10', isSet: false },
+  const quickPlaces: {
+    key: SavedPlaceKey;
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    bg: string;
+    isSet: boolean;
+    address: string | null;
+  }[] = [
+    { key: 'home', icon: <HomeIcon className="w-6 h-6" />, label: '집', color: 'text-blue-400', bg: 'bg-blue-500/10', isSet: savedPlaces.home.address != null, address: savedPlaces.home.address },
+    { key: 'school', icon: <GraduationCap className="w-6 h-6" />, label: '학교', color: 'text-emerald-400', bg: 'bg-emerald-500/10', isSet: savedPlaces.school.address != null, address: savedPlaces.school.address },
+    { key: 'work', icon: <Briefcase className="w-6 h-6" />, label: '회사', color: 'text-amber-400', bg: 'bg-amber-500/10', isSet: savedPlaces.work.address != null, address: savedPlaces.work.address },
   ];
 
-  const recentPlaces = [
-    { name: '강남역 2번 출구', addr: '서울 강남구 강남대로' },
-    { name: '스타벅스 신사점', addr: '서울 강남구 도산대로' }
-  ];
+  const goToRoutes = (dest: Destination) => {
+    selectDestination(dest);
+    navigate('/search');
+  };
+
+  const handleQuickPlace = (place: (typeof quickPlaces)[number]) => {
+    if (place.isSet && place.address) {
+      goToRoutes({ name: place.label, address: place.address });
+    } else {
+      navigate('/place-search');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-800 relative overflow-hidden">
@@ -41,7 +59,7 @@ export function Home() {
             <div className="w-6 h-6 bg-slate-700 rounded-full flex items-center justify-center shadow-sm border border-slate-600">
               <span className="text-sm">🦉</span>
             </div>
-            <p className="text-blue-300 font-bold text-sm tracking-wide">프로���트 부엉이</p>
+            <p className="text-blue-300 font-bold text-sm tracking-wide">프로젝트 부엉이</p>
           </div>
           <h1 className="text-[28px] font-bold text-slate-50 tracking-tight leading-tight">오늘도 안전하게<br />모실게요.</h1>
         </div>
@@ -62,10 +80,10 @@ export function Home() {
 
         {/* Quick places */}
         <div className="grid grid-cols-3 gap-4">
-          {quickPlaces.map((place, i) => (
-            <button 
-              key={i}
-              onClick={() => place.isSet ? navigate('/search') : navigate('/place-search')}
+          {quickPlaces.map((place) => (
+            <button
+              key={place.key}
+              onClick={() => handleQuickPlace(place)}
               className="flex flex-col items-center justify-center py-5 bg-slate-700 border border-slate-600 rounded-[24px] hover:bg-slate-600 transition-colors shadow-sm gap-3 active:scale-95 relative"
             >
               <div className={`p-4 rounded-full ${place.bg} ${place.color}`}>
@@ -86,14 +104,17 @@ export function Home() {
             최근 목적지
           </h3>
           <div className="flex flex-col bg-slate-700 border border-slate-600 rounded-[24px] shadow-sm divide-y divide-slate-600 overflow-hidden mb-6">
-            {recentPlaces.map((place, i) => (
-              <button key={i} onClick={() => navigate('/search')} className="flex items-center gap-4 p-5 hover:bg-slate-600 transition-colors text-left group">
+            {recentDestinations.length === 0 && (
+              <div className="p-5 text-slate-400 text-sm">최근 목적지가 없어요.</div>
+            )}
+            {recentDestinations.map((place, i) => (
+              <button key={i} onClick={() => goToRoutes(place)} className="flex items-center gap-4 p-5 hover:bg-slate-600 transition-colors text-left group">
                 <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 group-hover:text-blue-300 transition-colors">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
                   <div className="text-slate-100 font-medium">{place.name}</div>
-                  <div className="text-slate-400 text-sm mt-0.5">{place.addr}</div>
+                  <div className="text-slate-400 text-sm mt-0.5">{place.address}</div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-200 transition-colors" />
               </button>

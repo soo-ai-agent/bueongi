@@ -1,4 +1,4 @@
-import { cn } from './Button';
+import { cn } from './utils';
 
 interface TagProps {
   children: React.ReactNode;
