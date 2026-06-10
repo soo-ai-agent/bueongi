@@ -1,8 +1,9 @@
-import { ArrowLeft, MapPin, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useApp, type Destination, type SavedPlaceKey } from '../store/appStore';
+import { filterPlaces } from '../utils/placeSearch';
 
 const SAVED_PLACE_LABELS: Record<SavedPlaceKey, string> = {
   home: '집',
@@ -28,14 +29,10 @@ export function PlaceSearch() {
   const saveLabel = saveAs ? SAVED_PLACE_LABELS[saveAs] : null;
   const { recentDestinations, selectDestination, setSavedPlace } = useApp();
   const [keyword, setKeyword] = useState('');
-  const [isSearched, setIsSearched] = useState(false);
 
   const trimmed = keyword.trim();
-  const results = trimmed
-    ? PLACE_CATALOG.filter(
-        (p) => p.name.includes(trimmed) || p.address.includes(trimmed),
-      )
-    : [];
+  // 실시간(type-to-filter) 검색: 별도 '검색' 제출 없이 입력 즉시 결과 반영
+  const results = filterPlaces(PLACE_CATALOG, keyword);
 
   const handleSelect = (place: Destination) => {
     if (saveAs) {
@@ -58,11 +55,9 @@ export function PlaceSearch() {
     navigate('/confirm-location');
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  // form 제출(Enter)은 페이지 새로고침만 막는다 — 검색은 이미 실시간 반영됨.
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (trimmed.length > 0) {
-      setIsSearched(true);
-    }
   };
 
   return (
@@ -72,7 +67,7 @@ export function PlaceSearch() {
           <ArrowLeft className="w-6 h-6" />
         </button>
         <form
-          onSubmit={handleSearch}
+          onSubmit={handleSubmit}
           className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-2.5 rounded-[20px] border border-slate-600 focus-within:border-blue-400 transition-colors"
         >
           <input
@@ -80,18 +75,17 @@ export function PlaceSearch() {
             type="text"
             placeholder={saveAs ? `${saveLabel}(으)로 등록할 장소 검색` : '장소, 버스, 지하철역 검색'}
             value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setIsSearched(false);
-            }}
+            onChange={(e) => setKeyword(e.target.value)}
             className="flex-1 bg-transparent text-slate-50 text-base font-medium placeholder:text-slate-400 outline-none h-6"
           />
           {keyword.length > 0 && (
             <button
-              type="submit"
-              className="text-blue-400 font-bold text-sm whitespace-nowrap px-2 hover:text-blue-300 transition-colors"
+              type="button"
+              onClick={() => setKeyword('')}
+              aria-label="검색어 지우기"
+              className="text-slate-400 hover:text-slate-200 transition-colors shrink-0"
             >
-              검색
+              <X className="w-5 h-5" />
             </button>
           )}
         </form>
@@ -106,7 +100,7 @@ export function PlaceSearch() {
             </p>
           </div>
         )}
-        {isSearched ? (
+        {trimmed ? (
           results.length > 0 ? (
             <div className="flex flex-col divide-y divide-slate-700/50">
               {results.map((place, i) => (
