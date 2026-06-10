@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { persistAppState } from './persist';
 
 export interface Destination {
   name: string;
@@ -66,8 +67,10 @@ function loadState(): AppState {
 interface AppStore extends AppState {
   /** 목적지 선택 + 최근 목적지에 반영 */
   selectDestination: (dest: Destination) => void;
-  setSavedPlace: (key: SavedPlaceKey, address: string | null) => void;
-  addContact: (name: string, phone: string) => boolean;
+  /** @returns 영속(localStorage 저장) 성공 여부 — false면 비영속(in-memory만) */
+  setSavedPlace: (key: SavedPlaceKey, address: string | null) => boolean;
+  /** added: 등록 여부(정원 초과 시 false), persisted: 영속 성공 여부(false면 비영속) */
+  addContact: (name: string, phone: string) => { added: boolean; persisted: boolean };
   removeContact: (id: number) => void;
   /** 1순위 긴급 연락처(없으면 null) */
   primaryContact: EmergencyContact | null;
@@ -78,12 +81,9 @@ const AppContext = createContext<AppStore | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
 
+  // 전체 상태 영속(폴백). 안전 데이터 setter는 아래에서 동기 persist 결과를 직접 반환한다.
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      /* 저장 실패는 무시(프라이빗 모드 등) */
-    }
+    persistAppState(STORAGE_KEY, state);
   }, [state]);
 
   const selectDestination = (dest: Destination) => {
@@ -96,22 +96,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const setSavedPlace = (key: SavedPlaceKey, address: string | null) => {
-    setState((prev) => ({
-      ...prev,
-      savedPlaces: { ...prev.savedPlaces, [key]: { address } },
-    }));
+  const setSavedPlace = (key: SavedPlaceKey, address: string | null): boolean => {
+    const next: AppState = {
+      ...state,
+      savedPlaces: { ...state.savedPlaces, [key]: { address } },
+    };
+    const persisted = persistAppState(STORAGE_KEY, next);
+    setState(next);
+    return persisted;
   };
 
-  const addContact = (name: string, phone: string): boolean => {
-    let added = false;
-    setState((prev) => {
-      if (prev.contacts.length >= MAX_CONTACTS) return prev;
-      const nextId = prev.contacts.reduce((max, c) => Math.max(max, c.id), 0) + 1;
-      added = true;
-      return { ...prev, contacts: [...prev.contacts, { id: nextId, name, phone }] };
-    });
-    return added;
+  const addContact = (name: string, phone: string): { added: boolean; persisted: boolean } => {
+    if (state.contacts.length >= MAX_CONTACTS) return { added: false, persisted: true };
+    const nextId = state.contacts.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+    const next: AppState = {
+      ...state,
+      contacts: [...state.contacts, { id: nextId, name, phone }],
+    };
+    const persisted = persistAppState(STORAGE_KEY, next);
+    setState(next);
+    return { added: true, persisted };
   };
 
   const removeContact = (id: number) => {

@@ -40,7 +40,13 @@ export function PlaceSearch() {
   const handleSelect = (place: Destination) => {
     if (saveAs) {
       // 등록 모드: 선택한 장소를 자주 가는 장소로 저장하고 이전 화면으로 복귀
-      setSavedPlace(saveAs, place.address);
+      const persisted = setSavedPlace(saveAs, place.address);
+      if (!persisted) {
+        // in-memory 적용은 유지하되 저장 실패를 정직 고지(거짓 "등록했어요" 금지)
+        toast.error('저장 공간이 부족해 장소를 저장하지 못했어요. 새로고침하면 사라질 수 있어요. 브라우저 설정을 확인해 주세요.');
+        navigate(-1);
+        return;
+      }
       toast(`${saveLabel}을(를) '${place.name}'(으)로 등록했어요.`, {
         icon: <MapPin className="w-5 h-5 text-emerald-400" />,
       });

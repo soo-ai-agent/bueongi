@@ -33,9 +33,15 @@ export function EmergencyContact() {
       toast.error('올바른 전화번호를 입력해 주세요. (예: 010-1234-5678)');
       return;
     }
-    const ok = addContact(trimmedName, trimmedPhone);
-    if (!ok) {
+    const { added, persisted } = addContact(trimmedName, trimmedPhone);
+    if (!added) {
       toast.error(`긴급 연락처는 최대 ${MAX_CONTACTS}명까지 등록할 수 있어요.`);
+      return;
+    }
+    if (!persisted) {
+      // in-memory에는 추가됐지만 저장 실패 → 거짓 "등록했어요" 금지, 비영속 사실을 정직 고지
+      toast.error('저장 공간이 부족해 연락처를 저장하지 못했어요. 새로고침하면 사라질 수 있어요. 브라우저 설정(프라이빗 모드 등)을 확인해 주세요.');
+      resetForm();
       return;
     }
     toast(`${trimmedName} 연락처를 등록했어요.`);
