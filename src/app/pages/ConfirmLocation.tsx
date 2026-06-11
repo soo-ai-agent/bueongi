@@ -65,7 +65,7 @@ export function ConfirmLocation() {
           </div>
         </div>
 
-        <Button size="lg" fullWidth className="h-16 text-lg rounded-[24px]" onClick={handleConfirm}>
+        <Button data-testid="confirm-route-btn" size="lg" fullWidth className="h-16 text-lg rounded-[24px]" onClick={handleConfirm}>
           안심 경로 보기
         </Button>
       </div>

@@ -1,4 +1,6 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -44,5 +46,10 @@ export default defineConfig({
     port: 3619,
     strictPort: true,
     host: true,
+  },
+
+  // 단위 테스트(vitest)는 src의 *.test.ts만 — Playwright E2E(tests/e2e)는 별 러너이므로 제외.
+  test: {
+    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
 })

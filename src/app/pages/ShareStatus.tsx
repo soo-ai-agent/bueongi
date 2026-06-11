@@ -114,6 +114,7 @@ export function ShareStatus() {
           <h3 className="text-slate-300 font-medium px-2 mb-1">공유 방법 선택</h3>
 
           <button
+            data-testid="share-kakao-btn"
             onClick={handleKakao}
             className="w-full bg-[#FEE500] text-[#191919] rounded-[20px] p-5 flex items-center justify-center font-bold text-lg hover:bg-[#F4DC00] transition-colors active:scale-95 shadow-sm"
           >

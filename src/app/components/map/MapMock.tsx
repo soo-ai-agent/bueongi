@@ -32,7 +32,7 @@ export function MapMock({ pois = [], showRoute = false, routeType = 'safe', acti
   };
 
   return (
-    <div className={cn("relative w-full h-full bg-slate-700 overflow-hidden", className)}>
+    <div data-testid="map-mock" className={cn("relative w-full h-full bg-slate-700 overflow-hidden", className)}>
       {/* Map Grid Pattern */}
       <div className="absolute inset-0 opacity-30" 
            style={{ backgroundImage: 'linear-gradient(#64748b 2px, transparent 2px), linear-gradient(90deg, #64748b 2px, transparent 2px)', backgroundSize: '40px 40px' }} />

@@ -21,7 +21,7 @@ export function RouteDetail() {
   // "안심귀가 시작"으로 노출하지 않는다 — 검색으로 유도(RouteComparison/ConfirmLocation 가드와 동일).
   if (!hasDestination) {
     return (
-      <div className="flex flex-col h-full bg-slate-800 items-center justify-center text-center px-8 gap-4">
+      <div data-testid="no-destination-guard" className="flex flex-col h-full bg-slate-800 items-center justify-center text-center px-8 gap-4">
         <div className="w-14 h-14 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400">
           <MapPin className="w-6 h-6" />
         </div>
@@ -87,7 +87,7 @@ export function RouteDetail() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button size="lg" className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-[24px]" onClick={() => navigate('/navigate', { state: { routeId: route.id } })}>
+            <Button data-testid="start-navigation-btn" size="lg" className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-[24px]" onClick={() => navigate('/navigate', { state: { routeId: route.id } })}>
               <Navigation2 className="w-6 h-6 mr-2" />
               안심귀가 시작
             </Button>

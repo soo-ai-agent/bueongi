@@ -71,6 +71,7 @@ export function PlaceSearch() {
           className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-2.5 rounded-[20px] border border-slate-600 focus-within:border-blue-400 transition-colors"
         >
           <input
+            data-testid="place-search-input"
             autoFocus
             type="text"
             placeholder={saveAs ? `${saveLabel}(으)로 등록할 장소 검색` : '장소, 버스, 지하철역 검색'}
@@ -106,6 +107,7 @@ export function PlaceSearch() {
               {results.map((place, i) => (
                 <button
                   key={i}
+                  data-testid="place-result"
                   onClick={() => handleSelect(place)}
                   className="flex items-center gap-4 p-5 hover:bg-slate-700 transition-colors text-left group"
                 >

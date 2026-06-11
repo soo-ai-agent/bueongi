@@ -137,7 +137,7 @@ export function NavigationScreen() {
         </div>
 
         <div className="flex gap-3">
-          <Button variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>
+          <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>
             <Share2 className="w-5 h-5" />
           </Button>
           <Button className="flex-1 h-14 rounded-[20px] bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold" onClick={() => setArrivedOpen(true)}>

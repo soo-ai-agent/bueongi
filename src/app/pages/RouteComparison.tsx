@@ -121,8 +121,9 @@ export function RouteComparison() {
         
         <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3">
           {mockRoutes.map((route) => (
-            <div 
+            <div
               key={route.id}
+              data-testid="route-option"
               onClick={() => navigate(`/route/${route.id}`)}
               className={`p-5 rounded-[24px] border transition-all cursor-pointer active:scale-[0.98] ${
                 route.id === '1' 

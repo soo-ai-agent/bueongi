@@ -71,7 +71,8 @@ export function Home() {
 
       <div className="px-6 py-4 flex-1 flex flex-col gap-8 relative z-10 overflow-y-auto pb-6">
         {/* Main CTA / Search */}
-        <div 
+        <div
+          data-testid="home-search-trigger"
           onClick={() => navigate('/place-search')}
           className="w-full bg-slate-700 border border-slate-600 rounded-[28px] p-5 flex items-center gap-4 cursor-text shadow-md hover:shadow-lg transition-shadow"
         >

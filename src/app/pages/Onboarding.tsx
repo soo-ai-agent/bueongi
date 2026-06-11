@@ -86,7 +86,7 @@ export function Onboarding() {
           ))}
         </div>
 
-        <Button size="lg" fullWidth onClick={handleNext} className="group h-16 text-lg rounded-2xl">
+        <Button data-testid="onboarding-next" size="lg" fullWidth onClick={handleNext} className="group h-16 text-lg rounded-2xl">
           {step === slides.length - 1 ? '시작하기' : '다음'}
           <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </Button>
