@@ -19,6 +19,10 @@ export default defineConfig({
   fullyParallel: true,
   // CI에서 test.only 누락 방지(로컬 무영향).
   forbidOnly: !!process.env.CI,
+  // ③: 시각회귀 baseline은 mac(-darwin)만 커밋됨. CI(ubuntu)는 linux baseline이 없어
+  // toHaveScreenshot이 무조건 실패하므로, CI에선 스냅샷 비교를 건너뛴다(기능 플로우·가드는 그대로 게이트).
+  // 로컬(mac)은 darwin baseline과 계속 비교. linux baseline 생성은 후속(④ 이후) 검토.
+  ignoreSnapshots: !!process.env.CI,
 
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],

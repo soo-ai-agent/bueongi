@@ -1,0 +1,124 @@
+name: E2E (Playwright)
+
+# 단계 ③ — push/PR 시 단위(vitest) 회귀 + E2E를 ubuntu에서 자동 실행하고,
+# 캡처(HTML 리포트·스크린샷·실패 trace/video)를 artifact로 올린 뒤 PR에 결과를 코멘트한다.
+# 맥 부담 0(전부 CI). maps 키·dispatchVerifier·대시보드는 별 단계(④⑤).
+
+on:
+  push:
+    # 작업 브랜치는 PR 열릴 때만 → private Actions 한도 절약.
+    branches: [main, 'e2e/**', 'test/**', 'ci/**']
+  pull_request:
+    branches: [main]
+
+# 같은 ref에 연달아 push하면 이전 run 자동 취소(한도·시간 절약).
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write   # PR 결과 코멘트
+  checks: write          # 체크 상태
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # flake/무한매달림 상한
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      # 안전망의 안전망: 단위(vitest)가 깨지면 E2E 의미 없음 → 먼저, 깨지면 이후 skip.
+      - name: Unit tests (vitest)
+        id: vitest
+        run: npm test
+
+      - name: Install Playwright browser (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (Playwright)
+        id: playwright
+        env:
+          CI: 'true'   # config의 retries=2 자동 적용
+        run: npx playwright test
+
+      # 통과해도 업로드 — 사용자가 흐름 캡처를 확인하는 용도.
+      - name: Upload HTML report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-html-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload step screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # video·trace는 실패 시만 보존되므로(config), 실패 때만 업로드.
+      - name: Upload failure artifacts (video/trace)
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-artifacts
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # PR 이벤트일 때만 결과를 코멘트(있으면 갱신, 없으면 생성).
+      - name: Comment results on PR
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const vitest = ${{ toJSON(steps.vitest.outcome) }};
+            const e2e = ${{ toJSON(steps.playwright.outcome) }};
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const ok = (s) => s === 'success';
+            let header;
+            if (!ok(vitest)) header = '⚠️ **회귀** — 단위(vitest)가 깨졌습니다. E2E는 건너뜀.';
+            else if (ok(e2e)) header = '✅ **통과** — 안심귀가 풀플로우 + 가드(BUE-AUDIT-T109)';
+            else header = '❌ **실패** — E2E가 깨졌습니다. 아래 artifact로 실패 지점 확인.';
+
+            const body = [
+              `<!-- e2e-bot -->`,
+              `## 🎭 E2E 결과 — Run #${context.runNumber}`,
+              ``,
+              header,
+              ``,
+              `| 단계 | 결과 |`,
+              `|---|---|`,
+              `| 단위 (vitest) | \`${vitest}\` |`,
+              `| E2E (Playwright) | \`${e2e}\` |`,
+              ``,
+              `📦 **Artifacts** (14일 보존) — [Run에서 다운로드](${runUrl})`,
+              `- \`e2e-html-report\` — 단계별 캡처 + 타임라인`,
+              `- \`e2e-screenshots\` — 풀플로우 8장 (01~08)`,
+              ok(e2e) ? '' : `- \`e2e-failure-artifacts\` — 실패 trace/video (다운로드 후 trace.zip 열면 실패 지점)`,
+              ``,
+              `⏱ 자세한 시간/사용량은 위 Run 페이지 참조 (한도 보호: timeout 15분 · 동시실행 취소).`,
+            ].filter(l => l !== '').join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const prev = comments.find(c => c.body && c.body.includes('<!-- e2e-bot -->'));
+            if (prev) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: prev.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
