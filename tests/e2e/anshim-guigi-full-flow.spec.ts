@@ -34,6 +34,9 @@ test.describe('안심귀가 풀플로우 (mock)', () => {
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.getByTestId('home-search-trigger')).toBeVisible();
     await shot(page, '02-home.png');
+    // ★의도적 실패(시뮬레이션 전용) — "실패 시 캡처가 PR에 자동 첨부되는가"를 CI에서 실측하는 용도.
+    //   ★절대 머지 금지. 검증 후 이 PR/브랜치는 닫고 삭제한다(단계 ③ §4).
+    await expect(page.getByText('__INTENTIONAL_CI_FAILURE_SIMULATION__')).toBeVisible({ timeout: 3000 });
     await page.getByTestId('home-search-trigger').click();
 
     // 3) PlaceSearch — 실시간 필터: 입력하면 결과가 렌더되는가
