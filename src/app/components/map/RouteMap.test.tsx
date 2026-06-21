@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { RouteMap } from './RouteMap';
+import { RouteMap, poiMarkerHtml } from './RouteMap';
 
 // node/SSR 환경에서는 useEffect가 실행되지 않아 Kakao SDK 초기화가 일어나지 않는다 →
 // RouteMap은 MapMock으로 폴백한다. 이는 키 미설정/로드 실패 시의 실제 런타임 폴백과 동일하며,
@@ -25,5 +25,33 @@ describe('RouteMap (폴백)', () => {
   it('좌표 없이도 크래시 없이 렌더된다', () => {
     const html = renderToString(<RouteMap pois={[{ type: 'end', x: 50, y: 50 }]} />);
     expect(html).toContain('data-testid="map-mock"');
+  });
+});
+
+describe('poiMarkerHtml (실지도 마커 구분 아이콘)', () => {
+  it('CCTV·비상벨·안심집 마커가 서로 다른 글리프로 그려진다', () => {
+    const cctv = poiMarkerHtml('cctv');
+    const bell = poiMarkerHtml('bell');
+    const safehouse = poiMarkerHtml('safehouse');
+
+    // 셋 다 SVG 글리프를 가지며 마커 HTML이 서로 다르다(시각적 구분).
+    for (const html of [cctv, bell, safehouse]) expect(html).toContain('<svg');
+    expect(cctv).not.toBe(bell);
+    expect(bell).not.toBe(safehouse);
+    expect(cctv).not.toBe(safehouse);
+
+    // 유형 태그로 어떤 거점인지 식별 가능.
+    expect(cctv).toContain('data-poi="cctv"');
+    expect(bell).toContain('data-poi="bell"');
+    expect(safehouse).toContain('data-poi="safehouse"');
+  });
+
+  it('안심집(B-2) 마커는 영업시간이 아닌 지정 상태임을 라벨로 안내한다', () => {
+    expect(poiMarkerHtml('safehouse')).toContain('지정 상태');
+  });
+
+  it('출발/도착은 글리프 없는 점 마커로 둔다', () => {
+    expect(poiMarkerHtml('start')).not.toContain('<svg');
+    expect(poiMarkerHtml('end')).not.toContain('<svg');
   });
 });

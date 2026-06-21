@@ -31,8 +31,31 @@ interface KakaoMapOverlay {
   setMap(map: KakaoMap | null): void;
 }
 
+type KakaoServicesStatus = 'OK' | 'ZERO_RESULT' | 'ERROR';
+
+/** coord2RegionCode 결과 행(법정동 B / 행정동 H). code는 10자리 지역코드. */
+interface KakaoRegionCodeResult {
+  region_type: string;
+  code: string;
+  address_name?: string;
+}
+
+interface KakaoGeocoder {
+  coord2RegionCode(
+    x: number,
+    y: number,
+    callback: (result: KakaoRegionCodeResult[], status: KakaoServicesStatus) => void,
+  ): void;
+}
+
+interface KakaoMapsServices {
+  Geocoder: new () => KakaoGeocoder;
+  Status: { OK: KakaoServicesStatus; ZERO_RESULT: KakaoServicesStatus; ERROR: KakaoServicesStatus };
+}
+
 interface KakaoMapsApi {
   load(callback: () => void): void;
+  services?: KakaoMapsServices;
   Map: new (
     container: HTMLElement,
     options: {

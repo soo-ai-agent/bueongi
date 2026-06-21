@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   currentMonthVersion,
   extractSeoulRows,
+  linkItemsToPaths,
+  loadSeoulLinkedPaths,
   loadSeoulSafeItems,
   loadSeoulSafePaths,
+  parseSafeReturnItem,
   parseSafeReturnPath,
   parseSafeReturnPoint,
   parseWktLineString,
+  type SeoulSafeItem,
 } from './seoulSafeReturn';
 
 function memoryStorage() {
@@ -66,6 +70,55 @@ describe('parseSafeReturnPoint', () => {
   });
 });
 
+describe('parseSafeReturnItem (A-2 링크ID 보존)', () => {
+  it('좌표 + LINK_ID + 종류를 함께 파싱', () => {
+    expect(parseSafeReturnItem({ LAT: 37.5, LNG: 127.0, LINK_ID: 'L1', ITEM_SE: '안심벨' })).toEqual({
+      coords: { lat: 37.5, lng: 127.0 },
+      linkId: 'L1',
+      kind: '안심벨',
+    });
+  });
+
+  it('LINK_ID 없으면 linkId 미포함(미연계 시설)', () => {
+    expect(parseSafeReturnItem({ LAT: 37.5, LNG: 127.0 })).toEqual({ coords: { lat: 37.5, lng: 127.0 } });
+  });
+
+  it('좌표 없으면 null', () => {
+    expect(parseSafeReturnItem({ LINK_ID: 'L1' })).toBeNull();
+  });
+});
+
+describe('linkItemsToPaths (A-2 ↔ A-1 LINK_ID 연계)', () => {
+  const paths = [
+    { id: 'L1', coords: [{ lat: 37.5, lng: 127.0 }, { lat: 37.51, lng: 127.01 }] },
+    { id: 'L2', coords: [{ lat: 37.6, lng: 127.1 }, { lat: 37.61, lng: 127.11 }] },
+  ];
+
+  it('같은 LINK_ID 시설물을 해당 경로에 묶고 개수를 센다', () => {
+    const items: SeoulSafeItem[] = [
+      { coords: { lat: 37.5, lng: 127.0 }, linkId: 'L1' },
+      { coords: { lat: 37.505, lng: 127.005 }, linkId: 'L1' },
+      { coords: { lat: 37.6, lng: 127.1 }, linkId: 'L2' },
+    ];
+    const linked = linkItemsToPaths(paths, items);
+    expect(linked.find((p) => p.id === 'L1')?.itemCount).toBe(2);
+    expect(linked.find((p) => p.id === 'L2')?.itemCount).toBe(1);
+  });
+
+  it('linkId 없는 시설물은 어떤 경로에도 붙지 않는다', () => {
+    const items: SeoulSafeItem[] = [{ coords: { lat: 37.5, lng: 127.0 } }];
+    const linked = linkItemsToPaths(paths, items);
+    expect(linked.every((p) => p.itemCount === 0)).toBe(true);
+  });
+
+  it('매칭 경로가 없는 linkId는 무시(연계 실패해도 경로는 유지)', () => {
+    const items: SeoulSafeItem[] = [{ coords: { lat: 37.9, lng: 127.9 }, linkId: 'L999' }];
+    const linked = linkItemsToPaths(paths, items);
+    expect(linked).toHaveLength(2);
+    expect(linked.every((p) => p.itemCount === 0)).toBe(true);
+  });
+});
+
 describe('extractSeoulRows', () => {
   it('정상 응답에서 row 배열을 꺼낸다', () => {
     const payload = { tbSafeReturnItem: { RESULT: { CODE: 'INFO-000' }, row: [{ LAT: 37.5, LNG: 127 }] } };
@@ -108,5 +161,62 @@ describe('loadSeoulSafePaths/Items 직접 호출 + 캐시', () => {
 
   it('인증키 없으면 throw(CDN 점수 폴백 신호)', async () => {
     await expect(loadSeoulSafePaths({ apiKey: '', fetchImpl: vi.fn() })).rejects.toThrow('인증키');
+  });
+});
+
+describe('loadSeoulLinkedPaths (A-1+A-2 다운로드 후 LINK_ID 연계)', () => {
+  it('A-1 경로와 A-2 시설물을 모두 받아 LINK_ID로 연계', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('tbSafeReturnPath')) {
+        return new Response(
+          JSON.stringify({
+            tbSafeReturnPath: {
+              RESULT: { CODE: 'INFO-000' },
+              row: [{ LINK_ID: 'L1', WKT: 'LINESTRING(127.0 37.5, 127.01 37.51)' }],
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          tbSafeReturnItem: {
+            RESULT: { CODE: 'INFO-000' },
+            row: [
+              { LAT: 37.5, LNG: 127.0, LINK_ID: 'L1', ITEM_SE: '안심벨' },
+              { LAT: 37.505, LNG: 127.005, LINK_ID: 'L1', ITEM_SE: 'CCTV' },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    const linked = await loadSeoulLinkedPaths({ apiKey: 'K', fetchImpl, monthVersion: '2026-06', now: 1000 });
+    expect(linked).toHaveLength(1);
+    expect(linked[0].id).toBe('L1');
+    expect(linked[0].itemCount).toBe(2);
+    expect(linked[0].items).toHaveLength(2);
+  });
+
+  it('A-2 호출 실패해도 A-1 경로는 연계 0개로 유지', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('tbSafeReturnPath')) {
+        return new Response(
+          JSON.stringify({
+            tbSafeReturnPath: {
+              RESULT: { CODE: 'INFO-000' },
+              row: [{ LINK_ID: 'L1', WKT: 'LINESTRING(127.0 37.5, 127.01 37.51)' }],
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response('err', { status: 500 });
+    });
+    const linked = await loadSeoulLinkedPaths({ apiKey: 'K', fetchImpl, monthVersion: '2026-06', now: 1000 });
+    expect(linked).toHaveLength(1);
+    expect(linked[0].itemCount).toBe(0);
   });
 });

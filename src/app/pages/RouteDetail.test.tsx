@@ -6,6 +6,7 @@ import {
   fallbackDetailPois,
   fallbackFacilitySummary,
   getRouteDetailFacilitySummary,
+  getSafehouseCount,
   getVisibleRouteDetailPois,
   RouteDetail,
 } from './RouteDetail';
@@ -78,5 +79,36 @@ describe('getRouteDetailFacilitySummary', () => {
     };
 
     expect(getRouteDetailFacilitySummary(facilities)).toEqual(fallbackFacilitySummary);
+  });
+});
+
+describe('getSafehouseCount', () => {
+  it('summary.safehouse가 있으면 그 값을 쓴다', () => {
+    const facilities: FacilitiesResponse = {
+      pois: [{ type: 'safehouse', x: 55, y: 50, lat: 37.2, lng: 127.2 }],
+      summary: { cctv: 0, bell: 0, store: 0, police: 0, safehouse: 2, total: 1 },
+    };
+
+    expect(getSafehouseCount(facilities, getVisibleRouteDetailPois(true, facilities))).toBe(2);
+  });
+
+  it('summary에 safehouse가 없는 구버전 응답은 표시 중인 POI에서 직접 센다', () => {
+    const facilities: FacilitiesResponse = {
+      pois: [
+        { type: 'safehouse', x: 55, y: 50, lat: 37.2, lng: 127.2 },
+        { type: 'safehouse', x: 60, y: 45, lat: 37.21, lng: 127.21 },
+        { type: 'cctv', x: 35, y: 70, lat: 37.22, lng: 127.22 },
+      ],
+      summary: { cctv: 1, bell: 0, store: 0, police: 0, total: 3 },
+    };
+
+    expect(getSafehouseCount(facilities, getVisibleRouteDetailPois(true, facilities))).toBe(2);
+  });
+
+  it('facilities가 없으면 fallback POI의 안심집 수를 센다', () => {
+    const pois = getVisibleRouteDetailPois(true, null);
+    expect(getSafehouseCount(null, pois)).toBe(
+      fallbackDetailPois.filter((poi) => poi.type === 'safehouse').length,
+    );
   });
 });

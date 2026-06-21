@@ -48,6 +48,17 @@ const POI_BORDER: Record<RouteMapPoiType, string> = {
   end: '#3b82f6',
 };
 
+// 시설 유형별 구분 글리프(lucide 계열 stroke path). MapMock의 아이콘과 의미를 맞춰
+// CCTV(카메라)·비상벨(종)·안심집(집)·편의점(상점)·지구대(방패)를 실지도에서도 한눈에 구분한다.
+// start/end는 글리프 없이 점으로 둔다.
+const POI_GLYPH: Partial<Record<RouteMapPoiType, string>> = {
+  cctv: '<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  safehouse: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  store: '<path d="m2 7 1.5-3h17L22 7"/><path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M2 7h20"/>',
+  police: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+};
+
 function isFiniteCoord(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -58,12 +69,37 @@ function hasLatLng<T extends { lat?: number | null; lng?: number | null }>(
   return isFiniteCoord(p.lat) && isFiniteCoord(p.lng);
 }
 
-function poiMarkerHtml(type: RouteMapPoiType): string {
+/**
+ * 실지도 CustomOverlay 마커 HTML. 시설 유형은 테두리 색 + 내부 글리프로 구분하고,
+ * start/end는 글리프 없는 점으로 둔다. (테스트에서 유형별 구분을 검증하므로 export.)
+ */
+export function poiMarkerHtml(type: RouteMapPoiType): string {
   const color = POI_BORDER[type];
-  const fill = type === 'end' ? '#3b82f6' : type === 'start' ? '#e2e8f0' : '#475569';
-  // 작은 원형 핀 — 실지도 위 좌표에 정확히 투영되는 CustomOverlay 콘텐츠.
-  return `<div style="width:18px;height:18px;border-radius:9999px;background:${fill};border:3px solid ${color};box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%)"></div>`;
+  const glyph = POI_GLYPH[type];
+  if (!glyph) {
+    const fill = type === 'end' ? '#3b82f6' : type === 'start' ? '#e2e8f0' : '#475569';
+    // 출발/도착: 작은 원형 핀.
+    return `<div data-poi="${type}" style="width:18px;height:18px;border-radius:9999px;background:${fill};border:3px solid ${color};box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%)"></div>`;
+  }
+  // 시설: slate 배지 + 유형색 테두리 + 유형색 글리프(MapMock과 동일 색 체계).
+  const svg =
+    `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="${color}"` +
+    ` stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg>`;
+  return (
+    `<div data-poi="${type}" title="${POI_TITLE[type] ?? ''}" style="display:flex;align-items:center;justify-content:center;` +
+    `width:26px;height:26px;border-radius:9999px;background:#475569;border:2px solid ${color};` +
+    `box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%)">${svg}</div>`
+  );
 }
+
+// 마커 hover 라벨. 안심집(B-2)은 "지정 상태"일 뿐 영업시간 보장이 아님을 명시한다.
+const POI_TITLE: Partial<Record<RouteMapPoiType, string>> = {
+  cctv: 'CCTV',
+  bell: '비상벨',
+  store: '편의점',
+  police: '지구대·파출소',
+  safehouse: '여성안심지킴이집(지정 상태·영업시간 정보 없음)',
+};
 
 /**
  * 안심 귀가 경로 지도.

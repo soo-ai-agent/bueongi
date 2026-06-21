@@ -140,6 +140,63 @@ export function parseSafeReturnPoint(row: Record<string, unknown>): LatLng | nul
   );
 }
 
+/** A-2/A-3 행에서 A-1 경로와 연계할 링크ID를 뽑는다(데이터셋 버전별 컬럼명 fallback). */
+export function parseSafeReturnLinkId(row: Record<string, unknown>): string | undefined {
+  return firstString(row, ['LINK_ID', 'LINKID', 'PATH_ID', 'PATHID', 'A1_LINK_ID']);
+}
+
+/** A-2/A-3 시설물(좌표 + A-1 링크ID + 종류). 연계 계산용. */
+export interface SeoulSafeItem {
+  coords: LatLng;
+  /** A-1 경로(tbSafeReturnPath)의 LINK_ID. 연계 키. 없으면 미연계. */
+  linkId?: string;
+  /** 시설 종류 코드/명(있으면): 안심벨/CCTV/보안등/안심택배함 등. */
+  kind?: string;
+}
+
+/** A-2/A-3 시설 행 → SeoulSafeItem(좌표 + 링크ID 보존). 좌표 없으면 null. */
+export function parseSafeReturnItem(row: Record<string, unknown>): SeoulSafeItem | null {
+  const coords = parseSafeReturnPoint(row);
+  if (!coords) return null;
+  const linkId = parseSafeReturnLinkId(row);
+  const kind = firstString(row, ['ITEM_SE', 'FCLTY_SE', 'SE_NM', 'GUBUN', 'TYPE', 'CTGRY']);
+  return {
+    coords,
+    ...(linkId ? { linkId } : {}),
+    ...(kind ? { kind } : {}),
+  };
+}
+
+/** A-1 경로 + 연계된 A-2 시설물(링크ID 매칭). */
+export interface SeoulLinkedPath extends SafePath {
+  /** 이 링크에 연계된 A-2 시설물 좌표. */
+  items: LatLng[];
+  /** 연계 시설물 수(itemCount === items.length). 빠른 점수 보너스용. */
+  itemCount: number;
+}
+
+/**
+ * A-2 시설물을 A-1 경로 LINK_ID 기준으로 묶는다.
+ * - linkId 없는 시설물은 어떤 경로에도 붙지 않는다(미연계, 좌표 점수는 별도로 활용).
+ * - 같은 linkId의 A-1 경로가 여러 개면 첫 경로에만 붙인다(중복 가산 방지).
+ */
+export function linkItemsToPaths(paths: SafePath[], items: SeoulSafeItem[]): SeoulLinkedPath[] {
+  const byLink = new Map<string, LatLng[]>();
+  for (const item of items) {
+    if (!item.linkId) continue;
+    const bucket = byLink.get(item.linkId);
+    if (bucket) bucket.push(item.coords);
+    else byLink.set(item.linkId, [item.coords]);
+  }
+  const consumed = new Set<string>();
+  return paths.map((path) => {
+    const linked = !consumed.has(path.id) ? byLink.get(path.id) : undefined;
+    if (linked) consumed.add(path.id);
+    const linkedItems = linked ?? [];
+    return { ...path, items: linkedItems, itemCount: linkedItems.length };
+  });
+}
+
 async function fetchSeoulRows(dataset: SeoulDataset, options: SeoulSafeReturnOptions): Promise<Record<string, unknown>[]> {
   const key = options.apiKey ?? getSeoulOpenApiKey();
   if (!key) throw new Error('서울 열린데이터 인증키가 없습니다(VITE_SEOUL_OPENAPI_KEY)');
@@ -189,12 +246,33 @@ export function loadSeoulSafePaths(options: CachedLoadOptions = {}): Promise<Saf
   );
 }
 
-/** A-2 서울 안전시설물(안심벨/CCTV 포인트). */
+/** A-2 서울 안전시설물(안심벨/CCTV 포인트). 좌표만 필요할 때. */
 export function loadSeoulSafeItems(options: CachedLoadOptions = {}): Promise<LatLng[]> {
   return loadCached('a2:items', 'tbSafeReturnItem', (rows) =>
     rows.map(parseSafeReturnPoint).filter((p): p is LatLng => p !== null),
     options,
   );
+}
+
+/** A-2 서울 안전시설물(좌표 + A-1 링크ID 보존). 연계 계산용. */
+export function loadSeoulSafeItemsLinked(options: CachedLoadOptions = {}): Promise<SeoulSafeItem[]> {
+  return loadCached('a2:items:linked', 'tbSafeReturnItem', (rows) =>
+    rows.map(parseSafeReturnItem).filter((p): p is SeoulSafeItem => p !== null),
+    options,
+  );
+}
+
+/**
+ * A-1 경로 + A-2 시설물을 모두 다운로드/캐시한 뒤 LINK_ID로 연계해 반환한다.
+ * 첫 실행 1회 다운로드, 이후 월1회 갱신(loadCached 신선도 정책 재사용).
+ * 부분 실패(둘 중 하나만 받음)에도 받은 데이터로 최대한 연계한다.
+ */
+export async function loadSeoulLinkedPaths(options: CachedLoadOptions = {}): Promise<SeoulLinkedPath[]> {
+  const [paths, items] = await Promise.all([
+    loadSeoulSafePaths(options),
+    loadSeoulSafeItemsLinked(options).catch(() => [] as SeoulSafeItem[]),
+  ]);
+  return linkItemsToPaths(paths, items);
 }
 
 /** A-3 서울 서비스시설물(지킴이집/안심택배함 포인트). */

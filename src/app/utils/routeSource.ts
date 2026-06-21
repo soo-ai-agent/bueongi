@@ -15,7 +15,7 @@ import {
   loadSafepath,
   type SafetyPoint,
 } from './cdnAssets';
-import { loadSeoulSafePaths } from './seoulSafeReturn';
+import { loadSeoulLinkedPaths } from './seoulSafeReturn';
 
 /**
  * 경로 후보 소스 선택(작업 3 통합 진입점).
@@ -73,13 +73,25 @@ async function loadFacilitiesForRegion(region: RegionInfo, options: ComparisonRo
 
   // 서울이면 A-1 안심귀갓길(직접 호출 캐시), 그 외는 CDN A-4 safepath로 보너스.
   let safePaths: LatLng[][] = localSafepaths.map((sp) => sp.coords);
+  const seoulItems: LatLng[] = [];
   if (region.isSeoul) {
-    const seoulPaths = await loadSeoulSafePaths({ signal: options.signal, now: options.now }).catch(() => []);
-    if (seoulPaths.length) safePaths = seoulPaths.map((sp) => sp.coords);
+    // A-1 경로 + A-2 시설물을 함께 받아 LINK_ID로 연계(서울 정밀 모드).
+    const linked = await loadSeoulLinkedPaths({ signal: options.signal, now: options.now }).catch(() => []);
+    if (linked.length) {
+      safePaths = linked.map((sp) => sp.coords);
+      // A-1 링크에 연계된 A-2 안심벨/CCTV 시설물 좌표를 점수 버퍼에 합류시킨다.
+      for (const path of linked) seoulItems.push(...path.items);
+    }
   }
 
   return {
-    facilities: { cctv: toLatLngs(cctv), bell: toLatLngs(bell), lamp: toLatLngs(lamp), safehouse: toLatLngs(safehouse) },
+    facilities: {
+      cctv: toLatLngs(cctv),
+      // 서울은 A-2 시설물(안심벨/CCTV 포인트)을 bell 버퍼에 합쳐 정밀 점수에 반영.
+      bell: [...toLatLngs(bell), ...seoulItems],
+      lamp: toLatLngs(lamp),
+      safehouse: toLatLngs(safehouse),
+    },
     safePaths,
   };
 }

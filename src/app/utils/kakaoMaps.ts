@@ -26,6 +26,21 @@ export function isKakaoMapsReady(): boolean {
   return typeof window !== 'undefined' && !!window.kakao?.maps?.Map;
 }
 
+/** services 라이브러리(Geocoder) ready 판정 — 좌표→시군구 역지오코딩에 필요. */
+export function isKakaoServicesReady(): boolean {
+  return typeof window !== 'undefined' && !!window.kakao?.maps?.services?.Geocoder;
+}
+
+/**
+ * Kakao Maps services 네임스페이스(Geocoder 등)를 준비되면 반환한다.
+ * SDK 미로드/키 미설정/라이브러리 누락 시 null(호출부가 시설 없이 진행하도록 폴백).
+ */
+export async function loadKakaoServices(): Promise<KakaoMapsServices | null> {
+  if (!(await loadKakaoMaps())) return null;
+  const services = typeof window !== 'undefined' ? window.kakao?.maps?.services : undefined;
+  return services?.Geocoder ? services : null;
+}
+
 // SDK ready를 기다리는 단 하나의 in-flight Promise(중복 스크립트 주입 방지).
 let mapsLoading: Promise<boolean> | null = null;
 
@@ -93,7 +108,8 @@ export function loadKakaoMaps(): Promise<boolean> {
     script.dataset.kakaoMaps = '1';
     script.async = true;
     // autoload=false → script onload 후 kakao.maps.load로 모듈을 명시적으로 초기화.
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${jsKey}&autoload=false`;
+    // libraries=services → 좌표→시군구 역지오코딩(Geocoder.coord2RegionCode)을 위해 함께 로드.
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${jsKey}&autoload=false&libraries=services`;
 
     // 브라우저가 onerror를 안 쏘는 케이스 대비 타임아웃 폴백.
     armTimeout();

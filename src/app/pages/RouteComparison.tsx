@@ -9,6 +9,7 @@ import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { type RouteOption, type RouteOptionTag } from '../utils/routeCompare';
 import { loadComparisonRoutes } from '../utils/routeSource';
+import { resolveRegionViaKakao } from '../utils/region';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi } from '../utils/routeFacilities';
 import { getApiErrorUserMessage, reportApiError } from '../utils/apiError';
 
@@ -125,7 +126,11 @@ export function RouteComparison() {
     setRouteOptionsError(null);
 
     // 앱 직접 호출 우선: Tmap AppKey가 있으면 Tmap+CDN 점수, 없으면 백엔드 폴백.
-    loadComparisonRoutes(destination, routeOrigin, { signal: controller.signal })
+    // resolveRegion으로 현재 위치를 시군구/서울 여부로 해석 → CDN 시설 점수 + 서울 A-1 보너스 분기.
+    loadComparisonRoutes(destination, routeOrigin, {
+      signal: controller.signal,
+      resolveRegion: resolveRegionViaKakao,
+    })
       .then((routes) => {
         setRouteOptions(routes);
         setApiRouteOptions(routes);

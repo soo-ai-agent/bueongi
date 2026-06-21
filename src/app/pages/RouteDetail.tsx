@@ -1,4 +1,4 @@
-import { ArrowLeft, ShieldAlert, Navigation2, MapPin, LocateFixed, LoaderCircle, Video, Bell, Store, Shield } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Navigation2, MapPin, LocateFixed, LoaderCircle, Video, Bell, Store, Shield, Home, Info } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { RouteMap } from '../components/map/RouteMap';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -21,6 +21,7 @@ export const fallbackDetailPois: RouteDetailPoi[] = [
   { type: 'cctv', x: 35, y: 70 },
   { type: 'cctv', x: 50, y: 60 },
   { type: 'bell', x: 45, y: 65 },
+  { type: 'safehouse', x: 55, y: 50 },
   { type: 'store', x: 65, y: 40 },
   { type: 'police', x: 75, y: 30 },
 ];
@@ -30,8 +31,23 @@ export const fallbackFacilitySummary: FacilitySummary = {
   bell: 1,
   store: 1,
   police: 1,
+  safehouse: 1,
   total: 5,
 };
+
+/**
+ * 안심집(B-2) 수. summary에 있으면 그 값을, 없으면(구버전 백엔드) 표시 중인 POI에서 직접 센다.
+ * "보이는 것만 센다" 원칙 — 지도 마커와 항상 일치한다.
+ */
+export function getSafehouseCount(
+  facilities: FacilitiesResponse | null,
+  visiblePois: RouteDetailPoi[],
+): number {
+  if (facilities?.pois.length && typeof facilities.summary.safehouse === 'number') {
+    return facilities.summary.safehouse;
+  }
+  return visiblePois.filter((poi) => poi.type === 'safehouse').length;
+}
 
 export function getVisibleRouteDetailPois(hasOrigin: boolean, facilities: FacilitiesResponse | null): RouteDetailPoi[] {
   const pois = facilities?.pois.length ? facilities.pois : fallbackDetailPois;
@@ -122,6 +138,7 @@ export function RouteDetail() {
 
   const facilitySummary = getRouteDetailFacilitySummary(facilities);
   const detailPois = getVisibleRouteDetailPois(hasOrigin, facilities);
+  const safehouseCount = getSafehouseCount(facilities, detailPois);
 
   return (
     <div className="flex flex-col h-full bg-slate-800 relative">
@@ -181,12 +198,20 @@ export function RouteDetail() {
                   {facilitiesLoading ? '확인 중' : `총 ${facilitySummary.total}개`}
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                <FacilityCount icon={<Video />} label="CCTV" count={facilitySummary.cctv} />
-                <FacilityCount icon={<Bell />} label="비상벨" count={facilitySummary.bell} />
-                <FacilityCount icon={<Store />} label="편의점" count={facilitySummary.store} />
-                <FacilityCount icon={<Shield />} label="지구대" count={facilitySummary.police} />
+              <div className="grid grid-cols-5 gap-2">
+                <FacilityCount icon={<Video />} label="CCTV" count={facilitySummary.cctv} accent="text-emerald-300" />
+                <FacilityCount icon={<Bell />} label="비상벨" count={facilitySummary.bell} accent="text-red-300" />
+                <FacilityCount icon={<Home />} label="안심집" count={safehouseCount} accent="text-violet-300" />
+                <FacilityCount icon={<Store />} label="편의점" count={facilitySummary.store} accent="text-blue-300" />
+                <FacilityCount icon={<Shield />} label="지구대" count={facilitySummary.police} accent="text-blue-300" />
               </div>
+              {/* B-2 검증: 여성안심지킴이집은 '지정 상태'일 뿐 영업시간 정보가 없음을 명시. */}
+              {safehouseCount > 0 && (
+                <p data-testid="safehouse-hours-note" className="mt-3 flex items-start gap-1.5 text-slate-400 text-xs leading-relaxed">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-300" />
+                  여성안심지킴이집은 지정된 거점일 뿐 영업시간 정보가 없어요. 방문 전 운영 여부를 확인해 주세요.
+                </p>
+              )}
               {facilitiesError && <p className="text-amber-300 text-sm leading-relaxed mt-3">{facilitiesError}</p>}
             </div>
           )}
@@ -233,10 +258,10 @@ export function RouteDetail() {
   );
 }
 
-function FacilityCount({ icon, label, count }: { icon: ReactNode; label: string; count: number }) {
+function FacilityCount({ icon, label, count, accent = 'text-blue-300' }: { icon: ReactNode; label: string; count: number; accent?: string }) {
   return (
-    <div className="min-w-0 rounded-[14px] border border-slate-600 bg-slate-800/60 px-2.5 py-3 text-center">
-      <div className="mx-auto mb-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-blue-300 [&>svg]:h-4 [&>svg]:w-4">
+    <div className="min-w-0 rounded-[14px] border border-slate-600 bg-slate-800/60 px-2 py-3 text-center">
+      <div className={`mx-auto mb-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 ${accent} [&>svg]:h-4 [&>svg]:w-4`}>
         {icon}
       </div>
       <p className="truncate text-[11px] font-medium text-slate-400">{label}</p>

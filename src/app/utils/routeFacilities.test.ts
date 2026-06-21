@@ -108,6 +108,45 @@ describe('fetchRouteFacilities', () => {
     });
   });
 
+  it('안심집(safehouse) POI와 선택 필드 safehouse 집계를 함께 통과시킨다', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          pois: [
+            { type: 'cctv', x: 35, y: 70, lat: 37.52, lng: 126.99 },
+            { type: 'safehouse', x: 55, y: 50, lat: 37.53, lng: 126.96, name: '안심지킴이집' },
+          ],
+          summary: { cctv: 1, bell: 0, store: 0, police: 0, safehouse: 1, total: 2 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(fetchRouteFacilities(destination, origin, 'safe', { fetchImpl })).resolves.toEqual({
+      pois: [
+        { type: 'cctv', x: 35, y: 70, lat: 37.52, lng: 126.99 },
+        { type: 'safehouse', x: 55, y: 50, lat: 37.53, lng: 126.96, name: '안심지킴이집' },
+      ],
+      summary: { cctv: 1, bell: 0, store: 0, police: 0, safehouse: 1, total: 2 },
+    });
+  });
+
+  it('safehouse 집계가 음수/비정수면 계약 오류로 reject 한다', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          pois: [{ type: 'safehouse', x: 55, y: 50, lat: 37.53, lng: 126.96 }],
+          summary: { cctv: 0, bell: 0, store: 0, police: 0, safehouse: -1, total: 0 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(fetchRouteFacilities(destination, origin, 'safe', { fetchImpl })).rejects.toThrow(
+      'Route facilities response must include pois and summary',
+    );
+  });
+
   it('서버 오류는 호출부가 mock 시설을 유지할 수 있도록 reject 한다', async () => {
     const fetchImpl = vi.fn(async () => new Response('fail', { status: 500 }));
     await expect(fetchRouteFacilities(destination, origin, 'safe', { fetchImpl })).rejects.toThrow(

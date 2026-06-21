@@ -9,7 +9,7 @@ import {
 
 export const ROUTE_FACILITIES_ENDPOINT = '/api/routes/facilities';
 
-export type FacilityPoiType = 'start' | 'end' | 'cctv' | 'bell' | 'store' | 'police';
+export type FacilityPoiType = 'start' | 'end' | 'cctv' | 'bell' | 'store' | 'police' | 'safehouse';
 
 export interface FacilityPoi {
   type: FacilityPoiType;
@@ -25,6 +25,11 @@ export interface FacilitySummary {
   bell: number;
   store: number;
   police: number;
+  /**
+   * 여성안심지킴이집(B-2) 수. 백워드 호환을 위해 선택 필드 — 응답에 있을 때만 집계해 표시한다.
+   * 안심집은 "지정 상태"일 뿐 영업시간 보장이 아니므로 다른 시설과 구분해 다룬다.
+   */
+  safehouse?: number;
   total: number;
 }
 
@@ -54,7 +59,8 @@ function isFacilityPoiType(value: unknown): value is FacilityPoiType {
     value === 'cctv' ||
     value === 'bell' ||
     value === 'store' ||
-    value === 'police'
+    value === 'police' ||
+    value === 'safehouse'
   );
 }
 
@@ -113,7 +119,8 @@ function toFacilitySummary(value: unknown): FacilitySummary | null {
     !isNonNegativeInteger(summary.bell) ||
     !isNonNegativeInteger(summary.store) ||
     !isNonNegativeInteger(summary.police) ||
-    !isNonNegativeInteger(summary.total)
+    !isNonNegativeInteger(summary.total) ||
+    (summary.safehouse != null && !isNonNegativeInteger(summary.safehouse))
   ) {
     return null;
   }
@@ -123,6 +130,8 @@ function toFacilitySummary(value: unknown): FacilitySummary | null {
     bell: summary.bell,
     store: summary.store,
     police: summary.police,
+    // 안심집은 선택 필드 — 응답에 있을 때만 보존해 구버전 백엔드 계약과 호환된다.
+    ...(summary.safehouse != null ? { safehouse: summary.safehouse } : {}),
     total: summary.total,
   };
 }
