@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const defaultBaseURL = 'http://localhost:3619';
+const baseURL = process.env.E2E_BASE_URL ?? defaultBaseURL;
+const useExternalServer = process.env.E2E_USE_EXTERNAL_SERVER === '1';
+
 /**
  * Playwright E2E 설정 — 안심귀가(bueongi) 프론트엔드.
  *
@@ -30,7 +34,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: 'http://localhost:3619',
+    baseURL,
     // 실패 시 자동 캡처(기본 정책). 통과 시엔 무동작 → 디스크 절약.
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -45,11 +49,17 @@ export default defineConfig({
     },
   ],
 
-  // recon 실측: vite dev는 :3619에서 HTTP 200으로 마운트됨.
-  webServer: {
-    command: 'npm run dev',
-    port: 3619,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  // 기본은 Vite dev server를 직접 띄워 실제 브라우저 플로우를 검증한다.
+  // 포트 listen이 금지된 샌드박스/원격 환경은 E2E_USE_EXTERNAL_SERVER=1로
+  // 이미 떠 있는 서버(E2E_BASE_URL, 기본 :3619)에 붙거나 --list만 수행한다.
+  ...(useExternalServer
+    ? {}
+    : {
+        webServer: {
+          command: 'npm run dev',
+          url: defaultBaseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+        },
+      }),
 });

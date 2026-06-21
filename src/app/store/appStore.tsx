@@ -1,14 +1,25 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { persistAppState } from './persist';
+import type { LatLng, RouteOption } from '../utils/routeCompare';
 
 export interface Destination {
   name: string;
   address: string;
+  /** 백엔드 PlaceItem 계약과 동일한 WGS84 위도 */
+  lat: number;
+  /** 백엔드 PlaceItem 계약과 동일한 WGS84 경도 */
+  lng: number;
 }
 
 export interface SavedPlace {
+  /** 선택한 장소명. 구버전 저장값이면 null일 수 있음 */
+  name: string | null;
   /** 미설정이면 null */
   address: string | null;
+  /** 미설정/구버전 저장값이면 null */
+  lat: number | null;
+  /** 미설정/구버전 저장값이면 null */
+  lng: number | null;
 }
 
 export interface EmergencyContact {
@@ -37,26 +48,46 @@ export const MAX_CONTACTS = 3;
 const initialState: AppState = {
   destination: null,
   recentDestinations: [
-    { name: '강남역 2번 출구', address: '서울 강남구 강남대로' },
-    { name: '스타벅스 신사점', address: '서울 강남구 도산대로' },
+    { name: '강남역 2번 출구', address: '서울 강남구 강남대로', lat: 37.4979, lng: 127.0276 },
+    { name: '스타벅스 신사점', address: '서울 강남구 도산대로', lat: 37.5228, lng: 127.0219 },
   ],
   savedPlaces: {
-    home: { address: '서울 강남구 역삼로' },
-    school: { address: null },
-    work: { address: null },
+    home: { name: '집', address: '서울 강남구 역삼로', lat: 37.5003, lng: 127.0365 },
+    school: { name: null, address: null, lat: null, lng: null },
+    work: { name: null, address: null, lat: null, lng: null },
   },
   contacts: [{ id: 1, name: '아빠', phone: '010-1234-5678' }],
 };
+
+function normalizeSavedPlace(place: Partial<SavedPlace> | null | undefined): SavedPlace {
+  if (!place) return { name: null, address: null, lat: null, lng: null };
+  return {
+    name: typeof place.name === 'string' ? place.name : null,
+    address: typeof place.address === 'string' ? place.address : null,
+    lat: typeof place.lat === 'number' && Number.isFinite(place.lat) ? place.lat : null,
+    lng: typeof place.lng === 'number' && Number.isFinite(place.lng) ? place.lng : null,
+  };
+}
+
+function savedPlaceFromDestination(place: Destination | null): SavedPlace {
+  if (!place) return { name: null, address: null, lat: null, lng: null };
+  return { name: place.name, address: place.address, lat: place.lat, lng: place.lng };
+}
 
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    const savedPlaces = (parsed.savedPlaces ?? {}) as Partial<Record<SavedPlaceKey, Partial<SavedPlace>>>;
     return {
       destination: parsed.destination ?? null,
       recentDestinations: parsed.recentDestinations ?? initialState.recentDestinations,
-      savedPlaces: { ...initialState.savedPlaces, ...(parsed.savedPlaces ?? {}) },
+      savedPlaces: {
+        home: normalizeSavedPlace(savedPlaces.home ?? initialState.savedPlaces.home),
+        school: normalizeSavedPlace(savedPlaces.school ?? initialState.savedPlaces.school),
+        work: normalizeSavedPlace(savedPlaces.work ?? initialState.savedPlaces.work),
+      },
       contacts: parsed.contacts ?? initialState.contacts,
     };
   } catch {
@@ -82,10 +113,18 @@ export function removeContactFromState(
 }
 
 interface AppStore extends AppState {
+  /** 이번 세션에서 명시적으로 확인한 출발지(현재 위치). 개인정보라 localStorage에 영속하지 않는다. */
+  routeOrigin: LatLng | null;
+  /** 이번 세션에서 백엔드 compare API로 받은 경로 후보. 새로고침 시 mock route 폴백을 유지한다. */
+  apiRouteOptions: RouteOption[];
   /** 목적지 선택 + 최근 목적지에 반영 */
   selectDestination: (dest: Destination) => void;
+  /** 현재 위치 기반 경로 요청 origin 설정(비영속) */
+  setRouteOrigin: (origin: LatLng | null) => void;
+  /** compare API 결과를 상세 화면까지 넘기기 위한 세션 전용 경로 후보 설정 */
+  setApiRouteOptions: (routes: RouteOption[]) => void;
   /** @returns 영속(localStorage 저장) 성공 여부 — false면 비영속(in-memory만) */
-  setSavedPlace: (key: SavedPlaceKey, address: string | null) => boolean;
+  setSavedPlace: (key: SavedPlaceKey, place: Destination | null) => boolean;
   /** added: 등록 여부(정원 초과 시 false), persisted: 영속 성공 여부(false면 비영속) */
   addContact: (name: string, phone: string) => { added: boolean; persisted: boolean };
   /** @returns 영속(localStorage 저장) 성공 여부 — false면 비영속(새로고침 시 삭제가 되돌아갈 수 있음) */
@@ -98,6 +137,8 @@ const AppContext = createContext<AppStore | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
+  const [routeOrigin, setRouteOriginState] = useState<LatLng | null>(null);
+  const [apiRouteOptions, setApiRouteOptionsState] = useState<RouteOption[]>([]);
 
   // 전체 상태 영속(폴백). 안전 데이터 setter는 아래에서 동기 persist 결과를 직접 반환한다.
   useEffect(() => {
@@ -105,6 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const selectDestination = (dest: Destination) => {
+    setApiRouteOptionsState([]);
     setState((prev) => {
       const recents = [dest, ...prev.recentDestinations.filter((d) => d.name !== dest.name)].slice(
         0,
@@ -114,10 +156,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const setSavedPlace = (key: SavedPlaceKey, address: string | null): boolean => {
+  const setRouteOrigin = (origin: LatLng | null) => {
+    setApiRouteOptionsState([]);
+    setRouteOriginState(origin);
+  };
+
+  const setApiRouteOptions = (routes: RouteOption[]) => {
+    setApiRouteOptionsState(routes);
+  };
+
+  const setSavedPlace = (key: SavedPlaceKey, place: Destination | null): boolean => {
     const next: AppState = {
       ...state,
-      savedPlaces: { ...state.savedPlaces, [key]: { address } },
+      savedPlaces: { ...state.savedPlaces, [key]: savedPlaceFromDestination(place) },
     };
     const persisted = persistAppState(STORAGE_KEY, next);
     setState(next);
@@ -147,7 +198,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppStore = {
     ...state,
+    routeOrigin,
+    apiRouteOptions,
     selectDestination,
+    setRouteOrigin,
+    setApiRouteOptions,
     setSavedPlace,
     addContact,
     removeContact,

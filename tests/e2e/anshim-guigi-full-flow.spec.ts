@@ -20,7 +20,11 @@ async function shot(page: Page, name: string): Promise<void> {
 test.describe('안심귀가 풀플로우 (mock)', () => {
   test('Onboarding→home→place-search→confirm-location→search→route/:id→navigate→share', async ({
     page,
+    context,
   }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 37.501, longitude: 127.039 });
+
     // 1) Onboarding — 새 컨텍스트(localStorage 비어있음)면 온보딩 노출
     await page.goto('/');
     await expect(page.getByTestId('onboarding-next')).toBeVisible();
@@ -58,12 +62,15 @@ test.describe('안심귀가 풀플로우 (mock)', () => {
     await expect(page).toHaveURL(/\/search$/);
     await expect(page.getByRole('heading', { name: '경로 선택' })).toBeVisible();
     await expect(page.getByTestId('map-mock')).toBeVisible();
+    await page.getByRole('button', { name: '현재 위치 확인' }).click();
     await expect(page.getByTestId('route-option')).toHaveCount(3);
     await shot(page, '05-route-comparison.png');
-    await page.getByTestId('route-option').first().click();
+    await page.getByTestId('route-preview-option').nth(1).click();
+    await expect(page).toHaveURL(/\/search$/);
+    await page.getByTestId('route-detail-link').first().click();
 
     // 6) RouteDetail — 선택 경로 상세 + 실 목적지 컨텍스트 전파(plumbing) + mock 지도
-    await expect(page).toHaveURL(/\/route\/1$/);
+    await expect(page).toHaveURL(/\/route\/safe$/);
     await expect(page.getByRole('heading', { name: '추천 경로' })).toBeVisible();
     await expect(page.getByText('강남역 2번 출구')).toBeVisible();
     await expect(page.getByTestId('map-mock')).toBeVisible();

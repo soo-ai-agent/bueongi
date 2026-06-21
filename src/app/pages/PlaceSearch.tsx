@@ -1,9 +1,9 @@
 import { ArrowLeft, MapPin, Clock, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useApp, type Destination, type SavedPlaceKey } from '../store/appStore';
-import { filterPlaces } from '../utils/placeSearch';
+import { filterPlaces, searchPlacesWithFallback } from '../utils/placeSearch';
 
 const SAVED_PLACE_LABELS: Record<SavedPlaceKey, string> = {
   home: '집',
@@ -13,12 +13,12 @@ const SAVED_PLACE_LABELS: Record<SavedPlaceKey, string> = {
 
 // 데모용 장소 카탈로그 (백엔드 장소검색 연동 전 임시 데이터)
 const PLACE_CATALOG: Destination[] = [
-  { name: '강남역 2번 출구', address: '서울 강남구 강남대로 396' },
-  { name: '강남대학교', address: '경기 용인시 기흥구 강남로 40' },
-  { name: '강남경찰서', address: '서울 강남구 테헤란로 114길 11' },
-  { name: '역삼역 3번 출구', address: '서울 강남구 테헤란로' },
-  { name: '스타벅스 신사점', address: '서울 강남구 도산대로' },
-  { name: '신논현역 5번 출구', address: '서울 강남구 봉은사로' },
+  { name: '강남역 2번 출구', address: '서울 강남구 강남대로 396', lat: 37.4979, lng: 127.0276 },
+  { name: '강남대학교', address: '경기 용인시 기흥구 강남로 40', lat: 37.2751, lng: 127.1326 },
+  { name: '강남경찰서', address: '서울 강남구 테헤란로 114길 11', lat: 37.5094, lng: 127.0671 },
+  { name: '역삼역 3번 출구', address: '서울 강남구 테헤란로', lat: 37.5008, lng: 127.0369 },
+  { name: '스타벅스 신사점', address: '서울 강남구 도산대로', lat: 37.5228, lng: 127.0219 },
+  { name: '신논현역 5번 출구', address: '서울 강남구 봉은사로', lat: 37.5046, lng: 127.0251 },
 ];
 
 export function PlaceSearch() {
@@ -29,15 +29,34 @@ export function PlaceSearch() {
   const saveLabel = saveAs ? SAVED_PLACE_LABELS[saveAs] : null;
   const { recentDestinations, selectDestination, setSavedPlace } = useApp();
   const [keyword, setKeyword] = useState('');
+  const [remoteResults, setRemoteResults] = useState<Destination[] | null>(null);
 
   const trimmed = keyword.trim();
   // 실시간(type-to-filter) 검색: 별도 '검색' 제출 없이 입력 즉시 결과 반영
-  const results = filterPlaces(PLACE_CATALOG, keyword);
+  const fallbackResults = filterPlaces(PLACE_CATALOG, keyword);
+  const results = remoteResults ?? fallbackResults;
+
+  useEffect(() => {
+    setRemoteResults(null);
+    if (!trimmed) return;
+
+    const controller = new AbortController();
+    let active = true;
+
+    searchPlacesWithFallback(keyword, PLACE_CATALOG, { signal: controller.signal }).then((places) => {
+      if (active) setRemoteResults(places);
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [keyword, trimmed]);
 
   const handleSelect = (place: Destination) => {
     if (saveAs) {
       // 등록 모드: 선택한 장소를 자주 가는 장소로 저장하고 이전 화면으로 복귀
-      const persisted = setSavedPlace(saveAs, place.address);
+      const persisted = setSavedPlace(saveAs, place);
       if (!persisted) {
         // in-memory 적용은 유지하되 저장 실패를 정직 고지(거짓 "등록했어요" 금지)
         toast.error('저장 공간이 부족해 장소를 저장하지 못했어요. 새로고침하면 사라질 수 있어요. 브라우저 설정을 확인해 주세요.');

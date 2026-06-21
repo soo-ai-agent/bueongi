@@ -1,0 +1,418 @@
+# consensus.md — bueongi-frontend 회사 합의/현재 상태 베이턴
+
+> 자동 루프(frontend 역할) 사이클 간 공유 상태. 매 사이클 종료 시 갱신.
+> 최종 갱신: 2026-06-19 22:31 (KST) / 엔진: Codex
+
+## 프로젝트 개요
+- bueongi = 안전(안심) 귀가 앱. App Factory 독립 프로젝트(projectId=bueongi).
+- 프론트 스택: React 18 / Vite 6 / TypeScript 5.6 / Vitest / Playwright.
+- 백엔드 스택: Kotlin 1.9.25 / Spring Boot 3.4.0 / Java 21 / Gradle.
+- 백엔드 포트 8119, 프론트 dev 포트 3619(strictPort).
+- 프론트 경로: `/Users/soo/workspace/source-code/apps/bueongi/frontend-src`.
+- 백엔드 경로: `/Users/soo/workspace/source-code/apps/bueongi/backend`.
+
+## 현재 API 계약
+- `GET /api/places/search?keyword=` -> `PlaceItem{name,address,lat,lng}[]`
+  - 프론트는 `fetchPlaces()`에서 이 응답을 `Destination`으로 변환하며 좌표를 그대로 보존.
+  - 실패/비정상 네트워크 상황은 기존 mock 카탈로그 필터링으로 폴백.
+- `POST /api/routes/compare` -> safe/main/fast `RouteOption[]`.
+  - 프론트는 `fetchRouteOptions(destination, origin)`에서 선택 목적지 좌표를 `RouteRequest.destination`으로 변환.
+  - origin 정책 미확정 상태이므로 origin이 명시적으로 전달되고 유효 좌표일 때만 요청 생성.
+- `POST /api/routes/facilities` -> `FacilitiesResponse{pois, summary}`.
+  - 프론트는 `fetchRouteFacilities(destination, origin, routeType)`에서 compare와 같은 `RouteRequest`에 `routeType`을 추가해 전송.
+  - 응답 POI는 `start/end/cctv/bell/store/police`, x/y 0~100, lat/lng 범위를 런타임 검증해 유효 POI만 반환.
+- RouteRequest 좌표 범위: lat -90~90, lng -180~180. 프론트도 요청 전 동일 범위로 가드.
+- 백엔드 코드/테스트 기준: origin 누락은 422 `ORIGIN_REQUIRED`, 좌표 범위/validation 실패는 400 `VALIDATION_FAILED` ProblemDetail + `errors[]`.
+
+## 현재 구현 상태
+- 장소 검색:
+  - `src/app/utils/placeSearch.ts`에 `fetchPlaces`, `searchPlacesWithFallback`, `PLACE_SEARCH_ENDPOINT` 추가.
+  - `src/app/pages/PlaceSearch.tsx`는 검색어 입력 시 `/api/places/search`를 우선 호출하고, 실패하면 기존 `PLACE_CATALOG` 결과를 유지.
+  - 장소 검색 응답 변환은 `PlaceItem{name,address,lat,lng}` 중 문자열 name/address, 유한 숫자 좌표, WGS84 범위(lat -90~90, lng -180~180)를 만족하는 항목만 `Destination`으로 유지한다.
+  - `vite.config.ts` dev server에 `/api -> http://localhost:8119` 프록시 추가.
+- 좌표 보존:
+  - `Destination`은 `name/address/lat/lng` 필수.
+  - `SavedPlace`는 `lat/lng` nullable로 구버전 저장값을 방어.
+  - 최근 목적지/자주 가는 장소/검색 결과는 좌표를 보존.
+- 경로 비교:
+  - `src/app/utils/routeCompare.ts`에 `ROUTE_COMPARE_ENDPOINT`, `buildRouteCompareRequest`, `fetchRouteOptions` 추가.
+  - `buildRouteCompareRequest(destination, origin)`은 origin/destination 좌표를 lat -90~90, lng -180~180로 런타임 검증.
+  - `buildRouteCompareRequest()`는 origin 객체도 `lat/lng`만 남겨 직렬화해 geolocation 부가 필드가 RouteRequest에 섞이지 않도록 한다.
+  - 목적지 이름이 공백이면 `destination.name`을 생략하고, 좌표 없는 구버전 목적지는 백엔드 호출 전에 차단.
+  - `fetchRouteOptions()`는 malformed route option과 malformed tag를 필터링하며, `src/app/utils/routeCompare.test.ts`가 유효 route/tag만 비교 목록에 전달되는 계약을 회귀 테스트로 고정한다.
+  - `RouteComparison`은 `routeOrigin` 확보 후 `/api/routes/compare`를 호출한다.
+  - API 경로가 정상 반환되면 비교 목록에 API route options를 표시하고, 로딩 중/실패/빈 응답은 화면 안내와 함께 기존 `mockRoutes`로 폴백한다.
+  - route option 카드는 preview 선택 영역과 `경로 보기` 버튼을 분리한다. preview 선택은 지도/시설 preview route type만 바꾸고, 상세 진입은 `/route/{route.type}`로 이동한다.
+  - `resolveRoute()`는 mock id(`1/2/3`)와 API type id(`safe/main/fast`)를 모두 해석한다.
+- 경로 상세:
+  - `AppProvider`에 `apiRouteOptions`/`setApiRouteOptions` 세션 상태 추가. compare API 결과는 localStorage에 영속하지 않고, 새 목적지 선택/출발지 변경 시 stale route 방지를 위해 초기화한다.
+  - `RouteComparison`은 compare API 성공 결과를 세션 상태에 저장한다.
+  - `RouteDetail`은 세션 `apiRouteOptions`가 있으면 이를 우선 해석하고, 직접 진입/새로고침/빈 세션이면 기존 `mockRoutes`로 폴백한다.
+  - API route tag에는 icon이 없으므로 상세/비교 화면 모두 mock tag icon만 조건부 렌더링한다.
+- 길안내:
+  - `NavigationScreen`은 세션 `apiRouteOptions`가 있으면 mock 경로보다 우선 해석한다.
+  - RouteDetail에서 `navigate('/navigate', { state: { routeId: route.id } })`로 넘긴 API 경로 id/type이 길안내 화면의 경로명/ETA/거리와 일치한다.
+  - API 경로 후보가 없는 직접 진입/새로고침 상황은 기존처럼 `mockRoutes` 첫 경로로 폴백한다.
+  - 지도에 전달하는 route type은 `normalizeRouteType()`으로 `safe/main/fast`만 허용하고, 예상 밖 값은 `safe`로 폴백한다.
+  - 경로 화면 공통 목적지 표시명은 `getRouteDestinationContext()`에서 앞뒤 공백을 제거한 이름을 사용하고, 공백뿐인 이름은 기존처럼 `목적지`로 폴백한다.
+- 경로 시설:
+  - `src/app/utils/routeFacilities.ts`에 `ROUTE_FACILITIES_ENDPOINT`, `buildRouteFacilitiesRequest`, `fetchRouteFacilities` 추가.
+  - compare 유틸의 origin/destination 가드를 재사용하고, `routeType`은 safe/main/fast만 허용.
+  - `FacilitiesResponse{pois, summary}` shape을 검증하며 malformed summary는 reject, malformed POI는 지도에 넘기지 않도록 필터링.
+  - `RouteDetail`은 목적지 좌표와 세션 origin이 모두 있을 때 현재 route type 기준으로 `/api/routes/facilities`를 호출한다.
+  - facilities API 성공 시 지도 POI와 하단 시설 요약(CCTV/비상벨/편의점/지구대)을 API 응답으로 표시한다.
+  - facilities API 실패/빈 POI/로딩 전 상태는 기존 mock POI/summary를 유지하고, 실패 시 “기본 시설로 표시” 안내를 노출한다.
+  - origin 확인 전에는 facilities API를 호출하지 않고, 지도에는 목적지 POI만 표시한다.
+  - `RouteComparison` 지도도 origin 확보 후 현재 preview route type 기준으로 `/api/routes/facilities`를 호출해 지도 POI를 preview한다.
+  - preview route type은 최초/선택값 불일치 시 첫 경로 type(없으면 safe)으로 폴백하고, 카드 hover/focus/tap 시 해당 route type으로 전환된다.
+  - `RouteComparison` facilities preview는 실패/빈 POI에서 기존 start/end preview를 유지하며 사용자 흐름을 막지 않는다.
+  - `src/app/utils/routeFacilities.test.ts`는 `pois`가 배열이 아닌 시설 응답을 계약 오류로 reject하는 회귀 테스트를 포함한다.
+- 지도 SDK:
+  - `src/app/utils/kakaoMaps.ts`에 Kakao Maps JS SDK 동적 로더 추가. `VITE_KAKAO_JS_KEY`가 있으면 `dapi.kakao.com/v2/maps/sdk.js?autoload=false`를 주입하고 `kakao.maps.load()` 완료 후 실제 지도를 사용한다.
+  - `src/app/components/map/RouteMap.tsx`는 SDK 준비 시 Kakao 지도에 출발/목적지/시설 POI CustomOverlay와 route polyline을 그린다.
+  - 키 미설정/비브라우저/로드 실패/SDK ready timeout에서는 `MapMock`으로 폴백해 테스트·CI와 키 없는 개발 환경에서 화면이 비지 않는다.
+  - 기존 `script[data-kakao-maps]`가 DOM에 남아 있어도 ready/load/error 신호가 없으면 8초 타임아웃 후 false로 종료해 무기한 로딩을 방지한다.
+  - `src/vite-env.d.ts`에 `VITE_KAKAO_JS_KEY` 및 Kakao Maps 런타임 SDK 최소 타입을 선언해 `kakaoMaps.ts`의 환경 접근 `any` 캐스트를 제거했다.
+  - `RouteMap.tsx`의 Kakao `mapRef`/overlay/polyline/bounds ref는 `KakaoMap`, `KakaoMapOverlay`, `KakaoMapsLatLngBounds` 전역 타입을 사용하며 컴포넌트 내부 `any` ref를 제거했다.
+  - `RouteMap.tsx`의 Kakao 지도 초기화 effect는 최초 중심 좌표를 ref로 고정하고 `refreshMap`을 `useCallback`으로 안정화해 `react-hooks/exhaustive-deps` 억제 주석 없이 1회 초기화 의도를 유지한다.
+  - `src/app/utils/kakaoMaps.test.ts`의 script mock은 `TestScriptElement` 테스트 전용 타입과 load/error helper를 사용하며 명시적 `any` 없이 SDK 로더 계약을 검증한다.
+- Tmap 보행자 경로 클라이언트:
+  - `src/app/utils/tmap.ts`에 Tmap 보행자 경로 직접 호출 클라이언트와 GeoJSON 파서가 있다. AppKey는 `appKey` 헤더로만 전달하고 요청 body에는 포함하지 않는다.
+  - `parseTmapResponse()`는 GeoJSON `LineString` 좌표를 WGS84 `LatLng[]`로 변환하고, `totalDistance`가 없거나 `NaN`/음수이면 좌표열 길이로 보정한다.
+  - `totalTime`은 0 이상 유한 숫자만 채택해 비정상 외부 응답이 음수/NaN 시간으로 전파되지 않도록 방어한다.
+  - `fetchTmapPedestrianRoute()`는 `searchOption`을 `0/4/10/30` 허용 목록으로 런타임 검증해 계약 밖 옵션을 외부 호출 전에 차단한다.
+  - `fetchTmapPedestrianRoutes()`는 후보 `searchOption[]` 전체를 `0/4/10/30` 허용 목록으로 먼저 검증한 뒤 병렬 호출하며, 실패 옵션과 중복 거리 후보를 제외하고 성공 후보만 반환한다.
+  - `src/app/utils/tmap.test.ts`가 파서, body 직렬화, AppKey 비노출, 좌표/AppKey/searchOption 사전 차단, 후보 옵션 배열 사전 차단, 부분 실패/중복 제거 계약을 고정한다.
+- 경로 소스 선택:
+  - `src/app/utils/routeSource.ts`는 `VITE_TMAP_APP_KEY`가 있으면 Tmap 직접 호출을 우선하고, 없으면 전환기 백엔드 `/api/routes/compare`로 폴백한다.
+  - Tmap 직접 호출이 성공한 뒤 시군구 해석/CDN/서울 안심귀갓길 시설 로딩이 실패해도 추천 자체를 끊지 않고 Tmap 단독 안전 점수 RouteOption을 반환한다.
+  - `src/app/utils/routeSource.test.ts`는 CDN 시설 로딩 실패 시 백엔드 프록시로 우회하지 않고 Tmap 단독 추천을 유지하는 계약을 회귀 테스트로 고정한다.
+- 보호자 위치 공유:
+  - `src/app/utils/shareSession.ts`는 `/share/create`, `/share/{token}/location` 생성/갱신/조회 클라이언트를 제공한다.
+  - 위치 갱신/조회는 공유 토큰을 trim한 뒤 빈 문자열이면 네트워크 호출 전에 차단한다.
+  - 좌표는 lat -90~90, lng -180~180 범위의 유한 숫자만 전송하고, 만료/없는 토큰 404는 공유 종료 신호로 표면화한다.
+  - 보호자 위치 조회는 lat/lng 중 하나라도 없거나 범위 밖이면 좌표쌍 전체를 `null`로 정규화해 부분 좌표가 지도 상태로 전파되지 않도록 한다.
+  - `src/app/utils/shareSession.test.ts`가 TTL, 응답 변환, 좌표/토큰 사전 차단, 404 만료 처리 계약을 고정한다.
+- 공통 API 오류:
+  - `src/app/utils/apiError.ts` 추가. 백엔드 ProblemDetail/`errors[]`에서 `code`를 추출해 `ApiError{status,code,title,detail,errors,userMessage}`로 보존한다.
+  - 표준 코드 `ORIGIN_REQUIRED`, `VALIDATION_FAILED`, `MALFORMED_REQUEST`, `SAME_ORIGIN_DESTINATION`, `TRIP_TOO_FAR`, `INVALID_KEYWORD`는 사용자 행동 안내 문구로 매핑한다.
+  - 백엔드 오류 코드는 `code`, `errorCode`, `errors[0].code` 순서로 추출 가능하며, `src/app/utils/apiError.test.ts`가 `errorCode` 별칭으로 내려온 `INVALID_KEYWORD`도 표준 사용자 안내로 매핑되는 계약을 고정한다.
+  - place search/route compare/route facilities fetch 유틸은 `response.ok === false`일 때 공통 `ApiError`를 throw한다.
+  - `RouteComparison`/`RouteDetail`은 표준 `ApiError`만 코드별 안내를 사용하고, 알 수 없는 오류는 기존 화면별 fallback 문구를 유지한다.
+  - 개발 관측용 `reportApiError()`/`toApiErrorLogEntry()` 추가. 기본 활성화는 로컬 개발 호스트(`localhost`, `127.0.0.1`)로 제한하고, 로그 필드는 `context/kind/status/code/title/name`만 남겨 `detail`/`errors`/요청 바디/좌표를 기록하지 않는다.
+  - `RouteComparison` compare/facilities preview 실패와 `RouteDetail` facilities 실패는 화면 fallback 유지와 별개로 개발용 API 오류 보고를 호출한다.
+- 브라우저 API UI 테스트:
+  - 기존 Playwright E2E 설정(`tests/e2e`)에 `tests/e2e/route-api.spec.ts` 추가.
+  - localStorage로 목적지를 시드하고 Playwright geolocation을 허용한 뒤, `/api/routes/compare` 및 `/api/routes/facilities`를 mock route로 성공/표준 오류 응답 처리한다.
+  - 검증 범위: RouteComparison API route option 표시, compare 표준 오류 문구+fallback route 유지, RouteDetail facilities summary 표시, facilities 표준 오류 문구+fallback summary 유지.
+  - `NavigationScreen`이 RouteComparison/RouteDetail에서 선택한 backend route option을 유지하는 E2E 케이스 추가. `/search`에서 API `main` route를 선택해 `/route/main` -> `/navigate`로 이동한 뒤 경로명/ETA/거리(`서버 큰길 위주`, `25분`, `1.3km`)가 유지되는지 검증한다.
+  - `package.json`에 `test:e2e`(`playwright test`), `test:e2e:list`(`playwright test --list`), `test:e2e:external`(`E2E_USE_EXTERNAL_SERVER=1 playwright test`) 스크립트 추가.
+  - `playwright.config.ts`는 기본적으로 Vite dev server를 직접 띄워 실제 E2E를 실행한다. 포트 listen이 금지된 환경은 `test:e2e:list`로 테스트 discovery/파싱을 검증하거나, 외부 서버가 이미 있으면 `E2E_BASE_URL=... npm run test:e2e:external`로 webServer 없이 실행한다.
+- origin 확보 UX:
+  - `src/app/utils/currentLocation.ts` 추가. 브라우저 geolocation을 `LatLng{lat,lng}`로 변환하고 RouteRequest 좌표 범위로 검증.
+  - geolocation 미지원/권한 거부/timeout/좌표 오류를 `CurrentLocationError` 코드와 사용자 안내 문구로 매핑.
+  - `src/app/utils/currentLocation.test.ts`는 기본 geolocation 옵션뿐 아니라 호출부 옵션 override, timeout, unavailable, 권한 거부, 좌표 범위 오류, timeout 사용자 문구까지 회귀 테스트로 고정한다.
+  - `AppProvider`에 `routeOrigin`/`setRouteOrigin` 추가. 현재 위치는 개인정보라 localStorage에 영속하지 않는 세션 상태로만 유지.
+  - `RouteComparison`은 목적지 좌표가 있어도 origin이 없으면 mock 경로 목록을 숨기고 “현재 위치 확인” CTA를 표시. 확인 후에만 mock 경로 목록/route line 노출.
+  - `src/app/pages/RouteComparison.test.tsx`는 저장된 목적지가 있어도 origin 확인 전에는 route option이 렌더되지 않고 “현재 위치 확인” CTA가 렌더되는 SSR 회귀 테스트를 포함한다.
+  - `RouteDetail`은 origin이 없으면 “안심귀가 시작” 대신 “현재 위치 확인” CTA를 표시하고, origin 확인 전에는 출발지 POI/route line을 숨김.
+- 공통 UI 타입:
+  - `src/app/components/ui/Tag.tsx`가 `TagVariant` 타입을 export한다.
+  - `RouteComparison`의 route tag variant 타입은 `TagVariant`를 공유하며, API route tag에는 icon이 없고 mock route tag에는 icon이 있을 수 있는 차이를 `getRouteTagIcon()`으로 타입 안전하게 처리한다.
+
+## 빌드/테스트 상태
+- Frontend(2026-06-19 22:31 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeSource.test.ts` PASS: Test Files 1 passed, Tests 6 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 27 passed, Tests 239 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 9개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 20:56 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/tmap.test.ts` PASS: Test Files 1 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 27 passed, Tests 238 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 9개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 19:47 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/shareSession.test.ts` PASS: Test Files 1 passed, Tests 14 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 27 passed, Tests 237 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 11:33 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/tmap.test.ts` PASS: Test Files 1 passed, Tests 8 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 27 passed, Tests 236 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 10:22 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/shareSession.test.ts` PASS: Test Files 1 passed, Tests 13 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 27 passed, Tests 235 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 07:28 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/tmap.test.ts` PASS: Test Files 1 passed, Tests 7 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 15 passed, Tests 133 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 06:17 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeFacilities.test.ts` PASS: Test Files 1 passed, Tests 11 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 126 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 05:09 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/apiError.test.ts` PASS: Test Files 1 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 125 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-19 03:52 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeFacilities.test.ts` PASS: Test Files 1 passed, Tests 10 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 124 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 22:36 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npx vitest run src/app/utils/placeSearch.test.ts` PASS: Test Files 1 passed, Tests 14 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 123 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 21:03 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeCompare.test.ts` PASS: Test Files 1 passed, Tests 11 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 122 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 19:54 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteComparison.test.tsx` PASS: Test Files 1 passed, Tests 8 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 121 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 18:44 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/currentLocation.test.ts` PASS: Test Files 1 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 120 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 17:35 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npx vitest run src/app/utils/routeCompare.test.ts src/app/utils/routeFacilities.test.ts` PASS: Test Files 2 passed, Tests 19 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 116 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 16:25 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npx vitest run src/app/utils/routeSelection.test.ts` PASS: Test Files 1 passed, Tests 22 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 115 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 15:18 KST):
+  - `rg -n "eslint-disable|react-hooks/exhaustive-deps|as any|:\s*any\b|<any>|\bany\[\]" src/app/components/map/RouteMap.tsx src/app/components/map/RouteMap.test.tsx src/app/utils/kakaoMaps.ts src/app/utils/kakaoMaps.test.ts src/vite-env.d.ts` PASS: 매치 없음.
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/kakaoMaps.test.ts src/app/components/map/RouteMap.test.tsx` PASS: Test Files 2 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 14:12 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/kakaoMaps.test.ts src/app/components/map/RouteMap.test.tsx` PASS: Test Files 2 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 13:02 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/kakaoMaps.test.ts src/app/components/map/RouteMap.test.tsx` PASS: Test Files 2 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 11:53 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/kakaoMaps.test.ts src/app/components/map/RouteMap.test.tsx` PASS: Test Files 2 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 이전 사이클들에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 09:45 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteComparison.test.tsx src/app/pages/RouteDetail.test.tsx src/app/components/map/RouteMap.test.tsx` PASS: Test Files 3 passed, Tests 15 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 08:40 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeSelection.test.ts` PASS: Test Files 1 passed, Tests 21 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 114 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 05:34 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/placeSearch.test.ts` PASS: Test Files 1 passed, Tests 13 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 111 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 04:25 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test:e2e:list` PASS: 총 7개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 111 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 03:17 KST):
+  - `npx vitest run src/app/utils/apiError.test.ts src/app/utils/routeSelection.test.ts` PASS: Test Files 2 passed, Tests 26 passed. Node `DEP0205` warning만 표시.
+  - `npm run typecheck` PASS.
+  - `npm run test` PASS: Test Files 14 passed, Tests 111 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-18 01:00 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/kakaoMaps.test.ts src/app/components/map/RouteMap.test.tsx` PASS: Test Files 2 passed, Tests 9 passed. Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 14 passed, Tests 108 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 23:24 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/apiError.test.ts src/app/pages/RouteComparison.test.tsx src/app/pages/RouteDetail.test.tsx` PASS: Test Files 3 passed, Tests 20 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 12 passed, Tests 99 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 22:12 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteComparison.test.tsx` PASS: Test Files 1 passed, Tests 7 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 12 passed, Tests 96 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. 기존 Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 21:04 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteComparison.test.tsx` PASS: Test Files 1 passed, Tests 7 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 12 passed, Tests 96 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 19:53 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteComparison.test.tsx src/app/pages/RouteDetail.test.tsx src/app/utils/routeFacilities.test.ts` PASS: Test Files 3 passed, Tests 19 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run test` PASS: Test Files 12 passed, Tests 93 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인. Node `DEP0205` warning만 표시.
+  - `npm run test:e2e`는 이번 사이클에서 실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약 때문에 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 18:42 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test:e2e:list` PASS: 총 6개 E2E 등록 확인(기존 2개 + route-api 4개). Node `DEP0205` warning만 표시.
+  - `npm run test` PASS: Test Files 11 passed, Tests 89 passed. Node `DEP0205`/Vitest localStorage warning만 표시.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+  - `npm run test:e2e`는 이번 사이클에서 재실행하지 않음. 현재 샌드박스의 포트 listen `EPERM` 제약이 직전 사이클에서 확인되어, 실제 브라우저 실행은 포트 listen 가능 환경 또는 외부 서버 모드에서 필요.
+- Frontend(2026-06-17 17:30 KST):
+  - `npm run typecheck` PASS.
+  - `npm run test` PASS: Test Files 11 passed, Tests 89 passed.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+  - `npx playwright test --list` PASS: 총 6개 E2E 등록 확인(기존 2개 + 신규 route-api 4개).
+  - `npm run test:e2e` BLOCKED in current sandbox: Vite dev server listen이 `127.0.0.1:3619`에서 `EPERM`으로 실패. `npx vite --host 0.0.0.0 --port 3619`도 동일 `EPERM`. 로컬/CI처럼 포트 listen 가능한 환경에서 재실행 필요.
+- Frontend(2026-06-17 16:17 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/apiError.test.ts src/app/utils/placeSearch.test.ts src/app/utils/routeCompare.test.ts src/app/utils/routeFacilities.test.ts` PASS: Test Files 4 passed, Tests 35 passed.
+  - `npm run test` PASS: Test Files 11 passed, Tests 89 passed.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+- Frontend(2026-06-17 15:05 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/pages/RouteDetail.test.tsx src/app/utils/routeFacilities.test.ts` PASS: Test Files 2 passed, Tests 14 passed.
+  - `npm run test` PASS: Test Files 10 passed, Tests 82 passed.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+- Frontend(2026-06-17 13:51 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeSelection.test.ts src/app/pages/RouteDetail.test.tsx` PASS: Test Files 2 passed, Tests 17 passed.
+  - `npm run test` PASS: Test Files 10 passed, Tests 77 passed.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+- Frontend(2026-06-17 12:39 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/routeSelection.test.ts src/app/utils/routeCompare.test.ts` PASS: Test Files 2 passed, Tests 23 passed.
+  - `npm run test` PASS: Test Files 10 passed, Tests 76 passed.
+  - `npm run build` PASS: Vite production build completed. Rollup chunk size warning(>500kB)만 존재.
+- Frontend(2026-06-17 11:29 KST):
+  - `npm run typecheck` PASS.
+  - `npx vitest run src/app/utils/currentLocation.test.ts src/app/utils/routeCompare.test.ts` PASS: Test Files 2 passed, Tests 13 passed.
+  - `npm run test` PASS: Test Files 10 passed, Tests 75 passed.
+  - `npm run build` PASS: Vite production build completed.
+- Backend(직전 공유 메모리 기준 2026-06-17 06:50 KST):
+  - `./gradlew test` BUILD SUCCESSFUL, 테스트 40개 전부 통과.
+
+## 미해결/리스크
+- git: master 브랜치에 커밋 0개, 다수 untracked/modified 상태. 자동 커밋/푸시 안 함.
+- Frontend: `/api/routes/compare` 결과는 같은 SPA 세션의 `RouteDetail`까지 전달됨. 직접 진입/새로고침은 의도대로 mock route 폴백.
+- Frontend: `RouteComparison` 카드 preview와 상세 진입은 분리됨. 터치 환경에서도 preview 선택 후 별도 `경로 보기` 버튼으로 상세 진입한다.
+- Backend: 코드/테스트상 400/422 응답 표준화가 확인되었지만 이번 frontend 사이클에서 백엔드 테스트를 재실행하지는 않음.
+- Product/UX: 브라우저 geolocation 사용 및 권한 거부 안내는 1차 구현됨. route compare/detail/facilities API 성공/실패 UI용 Playwright 테스트는 추가됐지만, 현재 Codex 샌드박스에서는 dev server 포트 listen 금지로 실제 브라우저 실행이 차단됨.
+- 외부 지도 API(Kakao Local / Tmap) 실연동 미구현.
+
+## 해결됨(이번 사이클)
+- 상태 복원과 백로그 신호 확인을 수행했고, 깨진 빌드/테스트 기록이 없어 저위험 경로 소스 회귀 테스트 보강을 이번 산출물로 선택했다.
+- `src/app/utils/routeSource.test.ts`에 Tmap 직접 경로 호출은 성공했지만 CDN 시설 로딩이 실패하는 경우를 추가했다.
+- 해당 경우 백엔드 `/api/routes/compare`로 우회하지 않고 Tmap 단독 추천 RouteOption을 반환하는 정책을 고정했다.
+- `typecheck`, routeSource 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(직전 사이클)
+- 상태 복원과 백로그 발굴 절차를 수행했고, 깨진 빌드/테스트 기록이 없어 저위험 API 경계 방어 보강을 이번 산출물로 선택했다.
+- `src/app/utils/tmap.ts`에서 Tmap 보행자 요청 `searchOption`을 `0/4/10/30` 허용 목록으로 런타임 검증해 잘못된 옵션이 외부 API로 전송되지 않도록 했다.
+- `src/app/utils/tmap.test.ts`에 계약 밖 `searchOption` 사전 차단 회귀 테스트를 추가하고 fetch가 호출되지 않는 것을 고정했다.
+- `typecheck`, tmap 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(이전 사이클)
+- 상태 복원과 백로그 발굴 절차를 수행했고, 깨진 빌드/테스트 기록이 없어 저위험 테스트 커버리지 보강을 이번 산출물로 선택했다.
+- `src/app/utils/shareSession.ts`에서 보호자 위치 공유 갱신/조회 토큰을 trim하고 빈 토큰은 네트워크 호출 전에 차단하도록 방어했다.
+- `src/app/utils/shareSession.test.ts`에 `updateShareLocation()`/`getShareLocation()` 빈 토큰 사전 차단 회귀 테스트를 추가했다.
+- `typecheck`, shareSession 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(더 이전 사이클)
+- 상태 복원과 백로그 발굴 절차를 수행했고, 깨진 빌드/테스트 기록이 없어 저위험 테스트 커버리지 보강을 이번 산출물로 선택했다.
+- `src/app/utils/tmap.ts`에서 Tmap 응답의 `totalDistance`/`totalTime`이 0 이상 유한 숫자일 때만 채택하도록 방어했다. 비정상 거리값은 좌표열 길이로 보정되고, 비정상 시간값은 0으로 유지된다.
+- `src/app/utils/tmap.test.ts`를 추가해 Tmap GeoJSON 파싱, 요청 body 직렬화, AppKey 헤더 전달/body 비노출, 좌표/AppKey 사전 차단, 부분 실패/중복 후보 제거 계약을 고정했다.
+- `typecheck`, tmap 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(그 이전 사이클)
+- 상태 복원과 백로그 발굴 절차를 수행했고, 깨진 빌드/테스트 기록이 없어 저위험 테스트 커버리지 보강을 이번 산출물로 선택했다.
+- `src/app/utils/routeFacilities.test.ts`에 facilities `summary` 집계값이 음수/소수/문자열이면 계약 오류로 reject 하는 회귀 테스트를 추가했다.
+- `typecheck`, routeFacilities 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(더 이전 사이클)
+- 백로그 발굴 절차로 저위험 테스트 공백을 확인했고, `src/app/utils/routeCompare.test.ts`에 malformed route option/tag 응답 필터링 회귀 테스트를 추가했다.
+- route compare API 응답에 계약 밖 route type이나 잘못된 tag variant가 섞여도 유효 route/tag만 비교 목록에 전달되는 방어 계약을 고정했다.
+- `typecheck`, routeCompare 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## 해결됨(더 이전 사이클 2)
+- 직전 재작업 요청의 E2E 실패 원인(현재 위치 확인 전 `route-option` 기대)은 현재 풀플로우 E2E에서 origin 확인 후 검증하도록 반영된 상태임을 확인했다.
+- `src/app/pages/RouteComparison.test.tsx`에 저장된 목적지가 있어도 origin 확인 전에는 경로 옵션을 렌더하지 않고 “현재 위치 확인” CTA를 렌더하는 SSR 회귀 테스트를 추가했다.
+- `typecheck`, RouteComparison 타깃 Vitest, 전체 Vitest, production build, E2E 목록 검증 통과.
+
+## Next Action
+1. Frontend: 포트 listen 가능한 로컬/CI 환경에서 `npm run test:e2e`를 재실행하거나, 이미 떠 있는 dev server에 `E2E_BASE_URL=http://host:port npm run test:e2e:external`로 붙어 등록된 E2E 9개를 실제 Chromium으로 검증.
+2. Integration: Tmap 실연동 환경에서 `VITE_TMAP_APP_KEY`를 주입한 뒤 searchOption `0/4/10/30` 후보가 실제 API에서 정상 동작하는지 smoke test. 키 값은 로그/커밋/슬랙에 노출하지 말 것.
+3. Integration: Kakao Local 실연동은 프론트에서 REST 키를 노출하지 말고 백엔드 `/api/places/search` 뒤에 구현하는 방향이 안전함. 프론트 응답 계약은 `PlaceItem{name,address,lat,lng}` 유지.
+4. 이후: API 오류 보고를 실제 원격 관측 도구로 보낼지 결정. 현재는 로컬 개발 console 경로만 존재.

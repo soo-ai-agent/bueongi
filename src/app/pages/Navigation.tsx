@@ -1,4 +1,4 @@
-import { MapMock } from '../components/map/MapMock';
+import { RouteMap } from '../components/map/RouteMap';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon } from 'lucide-react';
@@ -9,20 +9,25 @@ import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, buildEmergencyShareText, buildArrivalShareText } from '../utils/share';
 import { mockRoutes } from './RouteComparison';
-import { resolveRoute, parseEtaMinutes, getRouteDestinationContext } from '../utils/routeSelection';
+import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
+import { loadNearestPolice } from '../utils/policeSource';
+import { formatDistance, toTelHref, type NearbyPolice } from '../utils/nearestPolice';
+import { getBrowserCurrentLocation, getCurrentLocationErrorMessage, CurrentLocationError } from '../utils/currentLocation';
 
 const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
 export function NavigationScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { destination, primaryContact } = useApp();
+  const { destination, primaryContact, routeOrigin, apiRouteOptions } = useApp();
   // 목적지 컨텍스트 — RouteDetail/RouteComparison/ConfirmLocation 가드와 동일 기준(단일 헬퍼).
-  const { hasDestination, destinationName } = getRouteDestinationContext(destination);
+  const { canRequestRoute, hasDestination, destinationName } = getRouteDestinationContext(destination);
   // RouteDetail에서 선택한 경로를 길안내로 이어받는다(없으면 추천 경로로 폴백).
-  const route = resolveRoute(mockRoutes, location.state?.routeId) ?? mockRoutes[0];
+  const route = resolveRouteWithApiOptions(apiRouteOptions, mockRoutes, location.state?.routeId) ?? mockRoutes[0];
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
+  const [policeLoading, setPoliceLoading] = useState(false);
+  const [nearestPoliceList, setNearestPoliceList] = useState<NearbyPolice[] | null>(null);
   const [timeLeft, setTimeLeft] = useState(() => parseEtaMinutes(route.time, 24)); // mins
 
   // Mock progress
@@ -74,16 +79,44 @@ export function NavigationScreen() {
     // 'cancelled'는 무안내
   };
 
-  // 목적지가 없으면(직접 진입·새로고침·state 소실) 가짜 "목적지로 가는 중" 길안내를 띄우거나
+  // 위급 시 최근접 파출소: police/all.json 로컬 캐시에서 검색(네트워크 없이 동작), 전화 연결 제공.
+  const handleFindPolice = async () => {
+    setPoliceLoading(true);
+    try {
+      let current = routeOrigin;
+      if (!current) current = await getBrowserCurrentLocation();
+      const list = await loadNearestPolice(current, { limit: 3 });
+      setNearestPoliceList(list);
+      if (list.length === 0) {
+        toast('10km 이내 파출소를 찾지 못했어요. 위급 시 112로 전화해 주세요.');
+      }
+    } catch (error) {
+      setNearestPoliceList([]);
+      // 위치 권한/타임아웃은 위치 안내로, 파출소 데이터 부재는 그 메시지를 그대로 표면화(정직).
+      const message =
+        error instanceof CurrentLocationError
+          ? getCurrentLocationErrorMessage(error)
+          : error instanceof Error
+            ? error.message
+            : '파출소를 찾지 못했어요. 위급 시 112로 전화해 주세요.';
+      toast.error(message);
+    } finally {
+      setPoliceLoading(false);
+    }
+  };
+
+  // 목적지/좌표가 없으면(직접 진입·새로고침·state 소실·구버전 저장데이터) 가짜 "목적지로 가는 중" 길안내를 띄우거나
   // 보호자에게 "목적지에 안전하게 도착"/긴급 메시지를 의미 없는 플레이스홀더 위치로 보내지 않는다.
   // 검색으로 유도한다(RouteDetail/RouteComparison/ConfirmLocation 가드와 동일 — 단일 기준).
-  if (!hasDestination) {
+  if (!canRequestRoute) {
     return (
       <div className="flex flex-col h-full bg-slate-800 items-center justify-center text-center px-8 gap-4">
         <div className="w-14 h-14 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400">
           <MapPin className="w-6 h-6" />
         </div>
-        <p className="text-slate-300 font-medium">선택된 목적지가 없어요</p>
+        <p className="text-slate-300 font-medium">
+          {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
+        </p>
         <p className="text-slate-400 text-sm">목적지를 검색하면 안심 경로로 동행해 드려요.</p>
         <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
           목적지 검색하기
@@ -107,8 +140,8 @@ export function NavigationScreen() {
       </motion.div>
 
       <div className="flex-1 w-full h-full relative">
-        {/* Mock Map with active user dot */}
-        <MapMock showRoute active routeType={route.type as any} pois={[
+        {/* 동행 중 지도 — 실좌표 경로선 + 현재 위치(active dot은 MapMock 폴백 시 노출) */}
+        <RouteMap showRoute active origin={routeOrigin} destination={destination} routeType={normalizeRouteType(route.type)} pois={[
           { type: 'cctv', x: 40, y: 65 },
           { type: 'bell', x: 45, y: 60 }
         ]} />
@@ -243,17 +276,48 @@ export function NavigationScreen() {
           </button>
 
           <div className="grid grid-cols-3 gap-3 mt-3">
-            {[
-              { icon: <AlertCircle className="w-6 h-6 text-red-400" />, label: '비상벨' },
-              { icon: <Search className="w-6 h-6 text-blue-400" />, label: '편의점' },
-              { icon: <MapPin className="w-6 h-6 text-blue-400" />, label: '파출소' }
-            ].map((poi, i) => (
-              <button key={i} className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 hover:bg-slate-600 transition-colors shadow-sm active:scale-95">
-                <div className="p-2 bg-slate-600 rounded-full">{poi.icon}</div>
-                <span className="text-slate-200 text-sm font-medium">{poi.label}</span>
-              </button>
-            ))}
+            <div className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 shadow-sm opacity-60">
+              <div className="p-2 bg-slate-600 rounded-full"><AlertCircle className="w-6 h-6 text-red-400" /></div>
+              <span className="text-slate-200 text-sm font-medium">비상벨</span>
+            </div>
+            <div className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 shadow-sm opacity-60">
+              <div className="p-2 bg-slate-600 rounded-full"><Search className="w-6 h-6 text-blue-400" /></div>
+              <span className="text-slate-200 text-sm font-medium">편의점</span>
+            </div>
+            <button
+              data-testid="nav-find-police"
+              onClick={handleFindPolice}
+              disabled={policeLoading}
+              className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 hover:bg-slate-600 transition-colors shadow-sm active:scale-95 disabled:opacity-60"
+            >
+              <div className="p-2 bg-slate-600 rounded-full"><MapPin className="w-6 h-6 text-blue-400" /></div>
+              <span className="text-slate-200 text-sm font-medium">{policeLoading ? '검색 중…' : '파출소'}</span>
+            </button>
           </div>
+
+          {/* 최근접 파출소 결과 — 로컬 검색(오프라인 OK) + 전화 연결 */}
+          {nearestPoliceList && nearestPoliceList.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2" data-testid="nearest-police-list">
+              {nearestPoliceList.map((p) => {
+                const tel = toTelHref(p);
+                return (
+                  <div key={p.id} className="bg-slate-700 border border-slate-600 rounded-[20px] p-4 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-slate-50 font-bold truncate">{p.name ?? '파출소'}</div>
+                      <div className="text-slate-400 text-sm">{formatDistance(p.distanceM)}{p.address ? ` · ${p.address}` : ''}</div>
+                    </div>
+                    {tel ? (
+                      <a href={tel} className="px-4 py-2 rounded-full bg-blue-500 text-white text-sm font-bold active:scale-95 flex items-center gap-1.5">
+                        <PhoneCall className="w-4 h-4" /> 전화
+                      </a>
+                    ) : (
+                      <span className="text-slate-500 text-xs">번호 없음</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </BottomSheet>
     </div>

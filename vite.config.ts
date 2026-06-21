@@ -41,6 +41,9 @@ export default defineConfig({
     port: 3619,
     strictPort: true,
     host: true,
+    proxy: {
+      '/api': 'http://localhost:8119',
+    },
   },
   preview: {
     port: 3619,

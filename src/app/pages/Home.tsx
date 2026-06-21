@@ -3,7 +3,8 @@ import { Button } from '../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp, type Destination, type SavedPlaceKey } from '../store/appStore';
+import { useApp, type Destination, type SavedPlace, type SavedPlaceKey } from '../store/appStore';
+import { hasValidRouteCoordinates } from '../utils/routeSelection';
 
 export function Home() {
   const navigate = useNavigate();
@@ -27,11 +28,11 @@ export function Home() {
     color: string;
     bg: string;
     isSet: boolean;
-    address: string | null;
+    place: SavedPlace;
   }[] = [
-    { key: 'home', icon: <HomeIcon className="w-6 h-6" />, label: '집', color: 'text-blue-400', bg: 'bg-blue-500/10', isSet: savedPlaces.home.address != null, address: savedPlaces.home.address },
-    { key: 'school', icon: <GraduationCap className="w-6 h-6" />, label: '학교', color: 'text-emerald-400', bg: 'bg-emerald-500/10', isSet: savedPlaces.school.address != null, address: savedPlaces.school.address },
-    { key: 'work', icon: <Briefcase className="w-6 h-6" />, label: '회사', color: 'text-amber-400', bg: 'bg-amber-500/10', isSet: savedPlaces.work.address != null, address: savedPlaces.work.address },
+    { key: 'home', icon: <HomeIcon className="w-6 h-6" />, label: '집', color: 'text-blue-400', bg: 'bg-blue-500/10', isSet: savedPlaces.home.address != null, place: savedPlaces.home },
+    { key: 'school', icon: <GraduationCap className="w-6 h-6" />, label: '학교', color: 'text-emerald-400', bg: 'bg-emerald-500/10', isSet: savedPlaces.school.address != null, place: savedPlaces.school },
+    { key: 'work', icon: <Briefcase className="w-6 h-6" />, label: '회사', color: 'text-amber-400', bg: 'bg-amber-500/10', isSet: savedPlaces.work.address != null, place: savedPlaces.work },
   ];
 
   const goToRoutes = (dest: Destination) => {
@@ -40,8 +41,14 @@ export function Home() {
   };
 
   const handleQuickPlace = (place: (typeof quickPlaces)[number]) => {
-    if (place.isSet && place.address) {
-      goToRoutes({ name: place.label, address: place.address });
+    const destination: Destination = {
+      name: place.place.name ?? place.label,
+      address: place.place.address ?? '',
+      lat: place.place.lat ?? NaN,
+      lng: place.place.lng ?? NaN,
+    };
+    if (place.isSet && hasValidRouteCoordinates(destination)) {
+      goToRoutes(destination);
     } else {
       // 미설정 장소: 등록 모드로 장소 검색 진입
       navigate('/place-search', { state: { saveAs: place.key } });

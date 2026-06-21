@@ -1,9 +1,10 @@
 import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { isUserCancelledShare, buildReturnShareText } from '../utils/share';
+import { createShare, isShareApiConfigured } from '../utils/shareSession';
 
 // 공유 상태: 수신 여부가 아닌 '사용자가 취한 행동'만 정직하게 표시(거짓 "전달됨" 금지).
 type ShareAction = 'idle' | 'shared' | 'copied';
@@ -21,8 +22,25 @@ export function ShareStatus() {
 
   // 공유 메시지 (보호자에게 전달될 안심귀가 상태)
   const shareMessage = buildReturnShareText(destName);
-  const shareUrl = `${window.location.origin}/share`;
+  // 위치 공유 서버가 설정되면 토큰 URL(/share/{token})을, 아니면 정적 링크를 공유한다.
+  const [shareUrl, setShareUrl] = useState(`${window.location.origin}/share`);
   const shareText = `${shareMessage}\n${shareUrl}`;
+
+  useEffect(() => {
+    if (!isShareApiConfigured()) return; // 미설정 시 정적 링크 폴백 유지
+    let cancelled = false;
+    // 공유 화면 진입 시 1시간 TTL 공유 토큰을 만들어 보호자 URL을 준비한다.
+    createShare(1)
+      .then((res) => {
+        if (!cancelled) setShareUrl(`${window.location.origin}/share/${res.token}`);
+      })
+      .catch(() => {
+        // 생성 실패 시 정적 링크 폴백을 유지(거짓확신 없이 조용히 폴백).
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleKakao = async () => {
     // 카카오 SDK 연동 전: Web Share API 우선, 미지원 시 클립보드 폴백

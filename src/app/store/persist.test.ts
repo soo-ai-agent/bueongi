@@ -4,7 +4,11 @@ import { persistAppState } from './persist';
 const KEY = 'bueongi-app-state-v1';
 const SAFE_STATE = {
   contacts: [{ id: 1, name: '아빠', phone: '010-1234-5678' }],
-  savedPlaces: { home: { address: '서울 강남구 역삼로' }, school: { address: null }, work: { address: null } },
+  savedPlaces: {
+    home: { name: '집', address: '서울 강남구 역삼로', lat: 37.5003, lng: 127.0365 },
+    school: { name: null, address: null, lat: null, lng: null },
+    work: { name: null, address: null, lat: null, lng: null },
+  },
   destination: null,
   recentDestinations: [],
 };
@@ -34,6 +38,12 @@ describe('persistAppState', () => {
     });
     vi.stubGlobal('localStorage', { setItem });
     // 자주 가는 장소 저장 실패 경로
-    expect(persistAppState(KEY, { ...SAFE_STATE, savedPlaces: { ...SAFE_STATE.savedPlaces, home: { address: '집 주소' } } })).toBe(false);
+    expect(persistAppState(KEY, {
+      ...SAFE_STATE,
+      savedPlaces: {
+        ...SAFE_STATE.savedPlaces,
+        home: { name: '집', address: '집 주소', lat: 37.5, lng: 127.03 },
+      },
+    })).toBe(false);
   });
 });

@@ -1,9 +1,11 @@
 import { cn } from './utils';
 
+export type TagVariant = 'default' | 'mint' | 'blue' | 'yellow' | 'outline';
+
 interface TagProps {
   children: React.ReactNode;
   icon?: React.ReactNode;
-  variant?: 'default' | 'mint' | 'blue' | 'yellow' | 'outline';
+  variant?: TagVariant;
   className?: string;
 }
 
