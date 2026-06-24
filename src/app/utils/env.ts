@@ -6,12 +6,11 @@
  * 런타임(SSR/일부 테스트)에서는 process.env로 폴백한다.
  */
 
-type EnvKey =
-  | 'VITE_KAKAO_JS_KEY'
-  | 'VITE_TMAP_APP_KEY'
-  | 'VITE_CDN_BASE_URL'
-  | 'VITE_SEOUL_OPENAPI_KEY'
-  | 'VITE_SHARE_API_BASE_URL';
+import type { ClientEnvKey } from './clientEnv';
+
+// 클라이언트 번들 주입 허용 키의 단일 출처는 clientEnv.ts(CLIENT_ENV_ALLOWLIST).
+// 여기서 별도 union을 두지 않고 거기서 파생해 드리프트를 막는다.
+type EnvKey = ClientEnvKey;
 
 function readEnv(key: EnvKey): string | undefined {
   // import.meta.env 우선(Vite 정적 주입), 없으면 process.env(테스트/Node).
