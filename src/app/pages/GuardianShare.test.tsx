@@ -52,8 +52,11 @@ describe('formatUpdatedAt', () => {
 describe('isLocationStale', () => {
   const now = Date.parse('2026-06-19T09:00:00Z');
 
-  it('갱신 시각이 없으면 stale 아님(별도 waiting으로 처리됨)', () => {
-    expect(isLocationStale(null, now)).toBe(false);
+  it('좌표는 왔으나 갱신 시각이 없으면(=신선도 검증 불가) 보수적으로 stale', () => {
+    // deriveState는 좌표만 있으면 updatedAt 없이도 live로 본다 → waiting이 아니다.
+    // 타임스탬프가 없으면 위치가 최신인지 확인할 길이 없으므로, 멈췄을 수도 있는 위치를
+    // 보호자에게 '실시간'으로 거짓 표기하지 않도록 stale로 내린다(파싱 불가와 동일한 보수 규칙).
+    expect(isLocationStale(null, now)).toBe(true);
   });
 
   it('임계값 이내(최근 갱신)면 stale 아님 → live 유지', () => {
@@ -72,6 +75,14 @@ describe('isLocationStale', () => {
 
   it('파싱 불가 시각은 신선도 확인 불가 → 보수적으로 stale', () => {
     expect(isLocationStale('not-a-date', now)).toBe(true);
+  });
+
+  it('live 응답(좌표 있음)이라도 타임스탬프가 없으면 stale로 내려 거짓 실시간 금지', () => {
+    // 거짓-실시간 회귀 가드: deriveState=live + updatedAt=null 조합은 보호자 지도에서
+    // active 마커로 떠 '실시간'을 약속하지만, 신선도 근거가 전혀 없다 → stale로 강등돼야 한다.
+    const live = deriveState({ lat: 37.5, lng: 127, updatedAt: null, expired: false });
+    expect(live).toBe('live');
+    expect(isLocationStale(null, now)).toBe(true);
   });
 });
 

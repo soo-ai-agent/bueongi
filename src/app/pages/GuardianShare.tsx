@@ -41,7 +41,10 @@ export function deriveState(res: ShareLocationResponse): GuardianState {
 
 /**
  * 마지막 위치 갱신이 임계값보다 오래됐는지(=실시간 표기를 내려야 하는지) 판정한다.
- * - 갱신 시각 없음(null): waiting으로 별도 처리되므로 stale 아님(false).
+ * - 갱신 시각 없음(null): 신선도를 검증할 근거가 없으므로 보수적으로 stale(true).
+ *   deriveState는 좌표만 있으면 updatedAt 없이도 live로 보므로(waiting이 아님),
+ *   타임스탬프 없는 live 응답을 '실시간'으로 거짓 표기하지 않게 막는다. 좌표 자체가
+ *   없는 경우는 호출부에서 state!=='live'(waiting)로 걸러져 이 분기에 닿지 않는다.
  * - 미래 시각(기기 시계 차이): 음수 경과 → stale 아님.
  * - 파싱 불가: 신선도를 확인할 수 없으므로 보수적으로 stale(true) — 거짓 '실시간' 금지.
  */
@@ -50,7 +53,7 @@ export function isLocationStale(
   now: number,
   thresholdMs: number = GUARDIAN_STALE_THRESHOLD_MS,
 ): boolean {
-  if (!updatedAt) return false;
+  if (!updatedAt) return true;
   const ts = Date.parse(updatedAt);
   if (!Number.isFinite(ts)) return true;
   return now - ts > thresholdMs;
