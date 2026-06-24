@@ -1,5 +1,5 @@
 import { ShieldCheck, MapPin, BellRing, ArrowRight } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';

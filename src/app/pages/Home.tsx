@@ -1,5 +1,5 @@
 import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, UserCircle, MapPin, X } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
