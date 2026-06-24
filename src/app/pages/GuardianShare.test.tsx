@@ -28,8 +28,20 @@ describe('formatUpdatedAt', () => {
     expect(formatUpdatedAt('2026-06-19T08:59:55Z', now)).toBe('방금 전');
   });
 
+  it('10~60초는 초 단위 경과', () => {
+    expect(formatUpdatedAt('2026-06-19T08:59:30Z', now)).toBe('30초 전');
+  });
+
   it('분 단위 경과', () => {
     expect(formatUpdatedAt('2026-06-19T08:57:00Z', now)).toBe('3분 전');
+  });
+
+  it('시간 단위 경과', () => {
+    expect(formatUpdatedAt('2026-06-19T07:00:00Z', now)).toBe('2시간 전');
+  });
+
+  it('미래 시각(기기 시계 차이)은 0으로 클램프 → 방금 전', () => {
+    expect(formatUpdatedAt('2026-06-19T09:00:05Z', now)).toBe('방금 전');
   });
 
   it('파싱 불가 시각은 안전 폴백', () => {
