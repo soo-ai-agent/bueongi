@@ -4,7 +4,7 @@ import { configDefaults } from 'vitest/config'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-
+import { clientEnvBuildGuard } from './src/app/utils/clientEnvBuildGuard'
 
 function figmaAssetResolver() {
   return {
@@ -19,7 +19,10 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  // 클라이언트 번들에 노출될 수 있는 env는 'VITE_' 접두만(명시 고정). 가드와 짝을 이룬다.
+  envPrefix: 'VITE_',
   plugins: [
+    clientEnvBuildGuard(),
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if
     // Tailwind is not being actively used – do not remove them
