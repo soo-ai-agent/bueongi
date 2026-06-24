@@ -1,9 +1,10 @@
 import type { Destination } from '../store/appStore';
-import type { LatLng, RouteOption } from './routeCompare';
+import type { LatLng, RouteOption, RouteType } from './routeCompare';
+import type { RouteMapPoi } from '../components/map/RouteMap';
 import { fetchRouteOptions } from './routeCompare';
 import { getCdnBaseUrl, getTmapAppKey } from './env';
 import { fetchTmapPedestrianRoutes } from './tmap';
-import { scoreAndType, toRouteOptions } from './directRoute';
+import { buildRouteMarkers, scoreAndType, toRouteOptions } from './directRoute';
 import type { SafetyFacilities } from './safetyScore';
 import {
   fileVersion,
@@ -97,17 +98,30 @@ async function loadFacilitiesForRegion(region: RegionInfo, options: ComparisonRo
 }
 
 /**
- * 경로 비교용 후보를 반환한다.
- * Tmap 직접 호출이 가능하면 그 경로를, 아니면 백엔드 폴백을 쓴다.
+ * 경로 비교 결과: UI 계약 RouteOption 목록과, 경로 유형별 거점 마커.
+ * 마커는 직접 호출 경로에서 점수에 쓴 CDN/서울 캐시 시설로부터 만들어, 레거시 백엔드
+ * facilities 호출 없이도 지도에 CCTV/안심집/비상벨을 점수와 일관되게 표시한다.
+ * 백엔드 폴백 경로에서는 marker 정보가 없어 markersByType가 빈 객체이며, 호출부는
+ * 기존 백엔드 facilities preview로 폴백한다.
  */
-export async function loadComparisonRoutes(
+export interface ComparisonRouteResult {
+  routes: RouteOption[];
+  markersByType: Partial<Record<RouteType, RouteMapPoi[]>>;
+}
+
+/**
+ * 경로 비교용 후보 + 거점 마커를 반환한다.
+ * Tmap 직접 호출이 가능하면 그 경로/마커를, 아니면 백엔드 폴백(마커 없음)을 쓴다.
+ */
+export async function loadComparisonRouteResult(
   destination: Destination,
   origin: LatLng,
   options: ComparisonRouteOptions = {},
-): Promise<RouteOption[]> {
+): Promise<ComparisonRouteResult> {
   if (!isDirectRouteEnabled()) {
-    // 전환기 폴백: 기존 백엔드 경로 비교(거부는 호출부가 mock으로 처리).
-    return fetchRouteOptions(destination, origin, { signal: options.signal });
+    // 전환기 폴백: 기존 백엔드 경로 비교(거부는 호출부가 mock으로 처리). 마커는 백엔드 facilities로.
+    const routes = await fetchRouteOptions(destination, origin, { signal: options.signal });
+    return { routes, markersByType: {} };
   }
 
   const tmapRoutes = await fetchTmapPedestrianRoutes(
@@ -130,5 +144,25 @@ export async function loadComparisonRoutes(
     // CDN/시군구 해석 실패 시 Tmap 단독 점수로 진행(추천 끊김 방지).
   }
 
-  return toRouteOptions(scoreAndType(tmapRoutes, facilities, safePaths));
+  const scored = scoreAndType(tmapRoutes, facilities, safePaths);
+  const dest: LatLng = { lat: destination.lat, lng: destination.lng };
+  const markersByType: Partial<Record<RouteType, RouteMapPoi[]>> = {};
+  for (const s of scored) {
+    // 같은 유형이 여러 후보면 안전 점수가 높은(먼저 만난) 후보의 마커를 유지한다.
+    if (markersByType[s.type]) continue;
+    markersByType[s.type] = buildRouteMarkers({ origin, destination: dest, path: s.route.path, facilities });
+  }
+
+  return { routes: toRouteOptions(scored), markersByType };
+}
+
+/**
+ * 경로 비교용 후보만 반환하는 호환 래퍼(마커가 불필요한 호출부용).
+ */
+export async function loadComparisonRoutes(
+  destination: Destination,
+  origin: LatLng,
+  options: ComparisonRouteOptions = {},
+): Promise<RouteOption[]> {
+  return (await loadComparisonRouteResult(destination, origin, options)).routes;
 }

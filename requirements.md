@@ -2,7 +2,7 @@
 
 > 목적: 본 문서는 구현된 코드를 **검증 가능한 수용 기준(AC)** 으로 고정한다.
 > 각 요구사항은 화면/유틸/API 계약과 자동화 테스트(unit·e2e)에 매핑된다.
-> 작성 기준: `parallel/bueongi-w2` HEAD, vitest 269 GREEN / 28 files.
+> 작성 기준: `parallel/bueongi-w2` HEAD, vitest 285 GREEN / 29 files.
 > 근거 점검: `.claude/reports/screen-api-status-2026-06-18.md`.
 
 ## 0. 시스템 개요
@@ -45,6 +45,7 @@
 - AC5.1 "현재 위치 확인"(geolocation) 후 `POST /api/routes/compare`, `POST /api/routes/facilities`를 호출한다.
 - AC5.2 좌표 검증 범위(lat -90~90, lng -180~180)를 **요청 전** 적용한다(프·백 일치).
 - AC5.3 호출 실패 시 `mockRoutes`(3건) + 안내문구로 폴백한다.
+- AC5.5 직접 호출(Tmap+CDN)이 켜지면 경로 유형별 거점 마커(CCTV·여성안심지킴이집·비상벨, start/end 포함)를 안전 점수에 쓴 CDN 시설로부터 만들어 지도에 표시하고, 레거시 백엔드 `/api/routes/facilities` preview 호출은 생략한다(직접 호출 우선). 키 미설정 시 백엔드 facilities preview로 폴백.
 - AC5.4 복구 가능 에러코드(`SAME_ORIGIN_DESTINATION`, `TRIP_TOO_FAR`, `INVALID_KEYWORD`, `ORIGIN_REQUIRED`, `VALIDATION_FAILED`, `MALFORMED_REQUEST`)는 사용자 메시지로 매핑된다.
 - 검증: `apiError.test.ts`, `routeCompare.test.ts`, `geo.test.ts`, e2e `route-api.spec.ts`(compare/facilities/ORIGIN_REQUIRED/VALIDATION_FAILED), 풀플로우(route-option 3건).
 
@@ -95,7 +96,7 @@
 
 ## 3. 비기능 / 검증 게이트
 
-- NF1 (테스트 GREEN): `npm test`(vitest run) 전부 통과 — 현 baseline **269 tests / 28 files**.
+- NF1 (테스트 GREEN): `npm test`(vitest run) 전부 통과 — 현 baseline **285 tests / 29 files**.
 - NF2 (타입): `npm run typecheck`(tsc --noEmit) 오류 0.
 - NF3 (e2e 파싱): 포트 미허용 환경에서도 `npm run test:e2e:list`로 테스트 디스커버리 검증.
 - NF4 (e2e 실행): `npm run test:e2e`로 풀플로우 + route-api 케이스 통과(스냅샷 포함).

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Destination } from '../store/appStore';
-import { isDirectRouteEnabled, loadComparisonRoutes } from './routeSource';
+import { isDirectRouteEnabled, loadComparisonRouteResult, loadComparisonRoutes } from './routeSource';
 
 const destination: Destination = { name: '강남역', address: '서울', lat: 37.4979, lng: 127.0276 };
 const origin = { lat: 37.5, lng: 127.0 };
@@ -90,5 +90,33 @@ describe('loadComparisonRoutes', () => {
     expect(routes.length).toBeGreaterThan(0);
     expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/manifest.json'))).toBe(true);
     expect(fetchMock.mock.calls.every((c) => !String(c[0]).includes('/api/routes/compare'))).toBe(true);
+  });
+});
+
+describe('loadComparisonRouteResult', () => {
+  it('백엔드 폴백 경로에서는 markersByType가 비어 있다(레거시 facilities로 폴백)', async () => {
+    vi.stubGlobal('process', { env: {} });
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify([{ id: 'b', name: '기본', time: '20분', dist: '1km', desc: 'd', tags: [], type: 'safe' }]), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadComparisonRouteResult(destination, origin);
+    expect(result.routes[0].id).toBe('b');
+    expect(result.markersByType).toEqual({});
+  });
+
+  it('직접 호출 경로는 유형별 거점 마커(start/end 포함, lat/lng+x/y)를 만든다', async () => {
+    vi.stubGlobal('process', { env: { VITE_TMAP_APP_KEY: 'k' } });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(tmapGeojson()), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadComparisonRouteResult(destination, origin);
+    const types = Object.keys(result.markersByType);
+    expect(types.length).toBeGreaterThan(0);
+    const markers = result.markersByType[types[0] as 'safe' | 'main' | 'fast'] ?? [];
+    expect(markers.some((m) => m.type === 'start')).toBe(true);
+    expect(markers.some((m) => m.type === 'end')).toBe(true);
+    expect(markers.every((m) => typeof m.lat === 'number' && typeof m.x === 'number')).toBe(true);
   });
 });

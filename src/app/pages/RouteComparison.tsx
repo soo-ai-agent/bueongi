@@ -1,14 +1,14 @@
 import { ArrowLeft, Video, Lightbulb, TrendingUp, AlertTriangle, Search, MapPin, LocateFixed, LoaderCircle, Navigation2 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { RouteMap } from '../components/map/RouteMap';
+import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
 import { Tag, type TagVariant } from '../components/ui/Tag';
 import { Button } from '../components/ui/button';
 import { useApp } from '../store/appStore';
 import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { type RouteOption, type RouteOptionTag } from '../utils/routeCompare';
-import { loadComparisonRoutes } from '../utils/routeSource';
+import { loadComparisonRouteResult } from '../utils/routeSource';
 import { resolveRegionViaKakao } from '../utils/region';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi } from '../utils/routeFacilities';
 import { getApiErrorUserMessage, reportApiError } from '../utils/apiError';
@@ -44,6 +44,19 @@ export const fallbackComparisonPois: RouteComparisonPoi[] = [
 export function getVisibleRouteComparisonPois(hasOrigin: boolean, facilities: FacilitiesResponse | null): RouteComparisonPoi[] {
   const pois = facilities?.pois.length ? facilities.pois : fallbackComparisonPois;
   return hasOrigin ? pois : pois.filter((poi) => poi.type === 'end');
+}
+
+/**
+ * 비교 지도에 그릴 POI를 고른다. 직접 호출(Tmap+CDN) 마커가 있으면 점수와 일관된 그 마커를,
+ * 없으면 레거시 백엔드 facilities preview(또는 폴백 POI)를 쓴다.
+ */
+export function getRouteComparisonMapPois(
+  hasOrigin: boolean,
+  directMarkers: RouteMapPoi[] | undefined,
+  facilities: FacilitiesResponse | null,
+): Array<RouteComparisonPoi | RouteMapPoi> {
+  if (hasOrigin && directMarkers && directMarkers.length > 0) return directMarkers;
+  return getVisibleRouteComparisonPois(hasOrigin, facilities);
 }
 
 export function getRouteComparisonPreviewType(
@@ -105,6 +118,8 @@ export function RouteComparison() {
   const [routeOptionsLoading, setRouteOptionsLoading] = useState(false);
   const [routeOptionsError, setRouteOptionsError] = useState<string | null>(null);
   const [previewFacilities, setPreviewFacilities] = useState<FacilitiesResponse | null>(null);
+  // 직접 호출(Tmap+CDN) 경로의 거점 마커 — 점수와 일관된 CCTV/안심집/비상벨. 있으면 레거시 백엔드 facilities보다 우선.
+  const [directMarkersByType, setDirectMarkersByType] = useState<Partial<Record<RouteType, RouteMapPoi[]>>>({});
   const [activePreviewRouteType, setActivePreviewRouteType] = useState<RouteType>('safe');
   const hasOrigin = routeOrigin !== null;
   const displayRoutes: DisplayRoute[] = routeOptions.length > 0 ? routeOptions : mockRoutes;
@@ -114,6 +129,7 @@ export function RouteComparison() {
     if (!hasOrigin || !destination || !canRequestRoute) {
       setRouteOptions([]);
       setApiRouteOptions([]);
+      setDirectMarkersByType({});
       setRouteOptionsLoading(false);
       setRouteOptionsError(null);
       return;
@@ -122,18 +138,20 @@ export function RouteComparison() {
     const controller = new AbortController();
     setRouteOptions([]);
     setApiRouteOptions([]);
+    setDirectMarkersByType({});
     setRouteOptionsLoading(true);
     setRouteOptionsError(null);
 
     // 앱 직접 호출 우선: Tmap AppKey가 있으면 Tmap+CDN 점수, 없으면 백엔드 폴백.
     // resolveRegion으로 현재 위치를 시군구/서울 여부로 해석 → CDN 시설 점수 + 서울 A-1 보너스 분기.
-    loadComparisonRoutes(destination, routeOrigin, {
+    loadComparisonRouteResult(destination, routeOrigin, {
       signal: controller.signal,
       resolveRegion: resolveRegionViaKakao,
     })
-      .then((routes) => {
+      .then(({ routes, markersByType }) => {
         setRouteOptions(routes);
         setApiRouteOptions(routes);
+        setDirectMarkersByType(markersByType);
         if (routes.length === 0) {
           setRouteOptionsError('실시간 경로가 없어 기본 경로로 안내합니다.');
         }
@@ -143,6 +161,7 @@ export function RouteComparison() {
         reportApiError('route compare', error);
         setRouteOptions([]);
         setApiRouteOptions([]);
+        setDirectMarkersByType({});
         setRouteOptionsError(getApiErrorUserMessage(error, '실시간 경로를 불러오지 못해 기본 경로로 안내합니다.'));
       })
       .finally(() => {
@@ -159,6 +178,11 @@ export function RouteComparison() {
       setPreviewFacilities(null);
       return;
     }
+    // 직접 호출 경로의 거점 마커가 있으면 그걸 쓰고 레거시 백엔드 facilities 호출은 생략한다.
+    if ((directMarkersByType[previewRouteType]?.length ?? 0) > 0) {
+      setPreviewFacilities(null);
+      return;
+    }
 
     const controller = new AbortController();
     setPreviewFacilities(null);
@@ -172,7 +196,7 @@ export function RouteComparison() {
       });
 
     return () => controller.abort();
-  }, [canRequestRoute, destination, hasOrigin, previewRouteType, routeOrigin]);
+  }, [canRequestRoute, destination, directMarkersByType, hasOrigin, previewRouteType, routeOrigin]);
 
   const requestOrigin = async () => {
     setOriginLoading(true);
@@ -236,7 +260,7 @@ export function RouteComparison() {
           destination={destination}
           showRoute={hasOrigin}
           routeType={hasOrigin ? previewRouteType : 'safe'}
-          pois={getVisibleRouteComparisonPois(hasOrigin, previewFacilities)}
+          pois={getRouteComparisonMapPois(hasOrigin, directMarkersByType[previewRouteType], previewFacilities)}
         />
       </div>
 

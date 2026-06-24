@@ -4,11 +4,13 @@ import { MemoryRouter } from 'react-router';
 import { AppProvider } from '../store/appStore';
 import {
   fallbackComparisonPois,
+  getRouteComparisonMapPois,
   getRouteComparisonPreviewType,
   getVisibleRouteComparisonPois,
   RouteComparison,
 } from './RouteComparison';
 import type { FacilitiesResponse } from '../utils/routeFacilities';
+import type { RouteMapPoi } from '../components/map/RouteMap';
 
 describe('RouteComparison (smoke)', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -82,6 +84,27 @@ describe('getVisibleRouteComparisonPois', () => {
     };
 
     expect(getVisibleRouteComparisonPois(true, facilities)).toEqual(fallbackComparisonPois);
+  });
+});
+
+describe('getRouteComparisonMapPois', () => {
+  const directMarkers: RouteMapPoi[] = [
+    { type: 'start', x: 12, y: 88, lat: 37.5, lng: 127.0 },
+    { type: 'cctv', x: 40, y: 50, lat: 37.505, lng: 127.0 },
+    { type: 'end', x: 88, y: 12, lat: 37.51, lng: 127.0 },
+  ];
+
+  it('직접 호출 마커가 있으면 그 마커를 우선 사용한다(레거시 facilities 무시)', () => {
+    const facilities: FacilitiesResponse = {
+      pois: [{ type: 'store', x: 58, y: 48, lat: 37.2, lng: 127.2 }],
+      summary: { cctv: 0, bell: 0, store: 1, police: 0, total: 1 },
+    };
+    expect(getRouteComparisonMapPois(true, directMarkers, facilities)).toBe(directMarkers);
+  });
+
+  it('직접 호출 마커가 없으면 백엔드 facilities preview로 폴백한다', () => {
+    expect(getRouteComparisonMapPois(true, undefined, null)).toEqual(fallbackComparisonPois);
+    expect(getRouteComparisonMapPois(true, [], null)).toEqual(fallbackComparisonPois);
   });
 });
 
