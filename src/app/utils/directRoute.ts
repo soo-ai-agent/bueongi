@@ -120,3 +120,58 @@ export function toRouteMarkers(
   push(facilities.bell, 'bell');
   return markers;
 }
+
+export interface RouteMarkerInput {
+  /** 출발지(현재 위치). start 마커. */
+  origin: LatLng;
+  /** 목적지. end 마커. */
+  destination: LatLng;
+  /** 안전 점수를 매긴 경로 좌표열(버퍼 판정 기준). */
+  path: LatLng[];
+  facilities: Pick<SafetyFacilities, 'cctv' | 'bell' | 'safehouse'>;
+  corridorMeters?: number;
+}
+
+/** MapMock 폴백 좌표 투영 시 경계상자 가장자리에 두는 여백(%). */
+const MARKER_VIEWBOX_PADDING = 12;
+
+/**
+ * 직접 호출 경로의 거점 마커 묶음을 만든다(작업 3 — 경로 위 거점 마커).
+ *
+ * `toRouteMarkers`로 버퍼 안 CCTV/안심집/비상벨을 모으고 출발/목적지 마커를 더한 뒤,
+ * 실지도용 lat/lng는 그대로 두고 MapMock 폴백용 x/y(0~100%)를 모든 마커가 포함되는
+ * 경계상자에 여백을 두고 투영한다. 지도 키 유무와 무관하게 동일 거점을 보여주기 위함이다.
+ * (위도는 화면 위쪽이 큰 값이므로 y축을 뒤집어 투영한다.)
+ */
+export function buildRouteMarkers(input: RouteMarkerInput): RouteMapPoi[] {
+  const corridor = input.corridorMeters ?? DEFAULT_CORRIDOR_METERS;
+  const markers: RouteMapPoi[] = [
+    { type: 'start', x: 0, y: 0, lat: input.origin.lat, lng: input.origin.lng },
+    { type: 'end', x: 0, y: 0, lat: input.destination.lat, lng: input.destination.lng },
+    ...toRouteMarkers(input.path, input.facilities, corridor),
+  ];
+
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  for (const m of markers) {
+    if (m.lat == null || m.lng == null) continue;
+    if (m.lat < minLat) minLat = m.lat;
+    if (m.lat > maxLat) maxLat = m.lat;
+    if (m.lng < minLng) minLng = m.lng;
+    if (m.lng > maxLng) maxLng = m.lng;
+  }
+
+  const range = 100 - 2 * MARKER_VIEWBOX_PADDING;
+  const spanLat = maxLat - minLat;
+  const spanLng = maxLng - minLng;
+  for (const m of markers) {
+    if (m.lat == null || m.lng == null) continue;
+    // 한 축이 퇴화(모든 좌표 동일)하면 가운데(50%)로 둔다.
+    m.x = spanLng === 0 ? 50 : MARKER_VIEWBOX_PADDING + ((m.lng - minLng) / spanLng) * range;
+    m.y = spanLat === 0 ? 50 : MARKER_VIEWBOX_PADDING + ((maxLat - m.lat) / spanLat) * range;
+  }
+
+  return markers;
+}

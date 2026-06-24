@@ -16,6 +16,17 @@ import { getShareApiBaseUrl } from './env';
 
 export type ShareExpiresHours = 1 | 2 | 3;
 
+/**
+ * 공유 만료/토큰 부재(서버 404) 전용 에러. 위치 전송 루프가 일시적 네트워크 오류와
+ * 구분해 "더 보낼 필요 없음 → 루프 종료" 신호로 쓴다(instanceof로 판별).
+ */
+export class ShareExpiredError extends Error {
+  constructor(message = '공유가 만료되었거나 토큰이 없습니다') {
+    super(message);
+    this.name = 'ShareExpiredError';
+  }
+}
+
 export interface CreateShareResponse {
   token: string;
   shareUrl: string;
@@ -113,7 +124,7 @@ export async function updateShareLocation(
     signal: options.signal,
   });
   // 만료/없는 토큰은 404로 올 수 있다 — 호출부가 공유 중단으로 처리하도록 표면화.
-  if (response.status === 404) throw new Error('공유가 만료되었거나 토큰이 없습니다');
+  if (response.status === 404) throw new ShareExpiredError();
   if (!response.ok) throw new Error(`위치 갱신 실패: ${response.status}`);
   const payload = (await response.json()) as Record<string, unknown>;
   const updatedAt = payload.updated_at ?? payload.updatedAt;

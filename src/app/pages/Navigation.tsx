@@ -1,13 +1,13 @@
 import { RouteMap } from '../components/map/RouteMap';
 import { BottomSheet } from '../components/ui/BottomSheet';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
-import { shareOrCopyText, buildEmergencyShareText, buildArrivalShareText } from '../utils/share';
+import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage } from '../utils/share';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
 import { loadNearestPolice } from '../utils/policeSource';
@@ -39,12 +39,12 @@ export function NavigationScreen() {
   }, []);
 
   // 귀가 완료를 보호자에게 실제로 알린다(자동 전송 메커니즘 부재 → 공유/복사로 정직 처리).
+  // 이 화면에는 실시간 위치 토큰이 없으므로 링크는 붙이지 않는다(토큰 없는 /share는 발신자 본인
+  // 화면으로 라우팅돼 보호자에게 깨진 링크·거짓 위치 약속이 됨 — composeArrivalShareMessage가 차단).
   const handleNotifyArrival = async () => {
-    const text = buildArrivalShareText(destinationName);
     const outcome = await shareOrCopyText({
       title: '부엉이 안심귀가',
-      text,
-      url: `${window.location.origin}/share`,
+      text: composeArrivalShareMessage(destinationName, null),
     });
     if (outcome === 'shared') {
       toast('보호자에게 귀가 완료를 알렸어요.', {
@@ -60,12 +60,13 @@ export function NavigationScreen() {
     // 'cancelled'(사용자 취소)는 정상 흐름 → 안내 없음
   };
 
-  // 위급 상황: 등록 연락처로 위치 링크가 담긴 긴급 메시지를 실제로 공유(자동 전송 날조 금지).
+  // 위급 상황: 긴급 메시지를 실제로 공유(자동 전송 날조 금지). 이 화면에는 실시간 위치 토큰이
+  // 없으므로 깨진 링크를 붙이지 않는다 — 위급 시 보호자가 무의미한 화면을 열게 만드는 거짓
+  // "위치 링크" 약속을 차단한다(composeEmergencyShareMessage가 링크 유무를 정직하게 결정).
   const handleEmergencyShare = async () => {
     const outcome = await shareOrCopyText({
       title: '부엉이 긴급',
-      text: buildEmergencyShareText(destinationName),
-      url: `${window.location.origin}/share`,
+      text: composeEmergencyShareMessage(destinationName, null),
     });
     if (outcome === 'shared') {
       toast('긴급 메시지를 공유했어요.', { icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" /> });
@@ -271,7 +272,7 @@ export function NavigationScreen() {
             </div>
             <div className="text-left flex-1">
               <div className="text-lg font-bold">긴급 메시지 공유</div>
-              <div className="text-slate-300 text-sm mt-1 font-medium">위치 링크와 함께 도움을 요청해요</div>
+              <div className="text-slate-300 text-sm mt-1 font-medium">목적지와 함께 도움을 요청해요</div>
             </div>
           </button>
 

@@ -2,7 +2,7 @@ import { ArrowLeft, ShieldAlert, Navigation2, MapPin, LocateFixed, LoaderCircle,
 import { useNavigate, useParams } from 'react-router';
 import { RouteMap } from '../components/map/RouteMap';
 import { BottomSheet } from '../components/ui/BottomSheet';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Tag } from '../components/ui/Tag';
 import { getRouteTagIcon, mockRoutes } from './RouteComparison';
 import { resolveRoute, getRouteDestinationContext } from '../utils/routeSelection';
