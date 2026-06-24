@@ -88,6 +88,33 @@ export function composeReturnShareMessage(destName: string, liveLocationUrl: str
 }
 
 /**
+ * 위급 상황 긴급 메시지를 보호자에게 보낼 전문(메시지 + 선택적 위치 링크)으로 합성한다.
+ *
+ * composeReturnShareMessage와 동일한 정직성 계약을 따른다:
+ * - liveLocationUrl이 실제 토큰 링크면 메시지 + 링크를 함께 보낸다.
+ * - 없으면(토큰 미생성/공유 서버 미설정) 링크를 붙이지 않는다. 토큰 없는 `/share`는
+ *   발신자 본인 화면(ShareStatus)으로 라우팅되므로, 위급 상황에서 보호자가 열면
+ *   위치 지도 대신 무의미한 화면이 떠 깨진 링크 + 거짓 "위치 링크" 약속이 된다 —
+ *   그 거짓 확신을 원천 차단하고 긴급 사실만 정직하게 전한다.
+ */
+export function composeEmergencyShareMessage(destName: string, liveLocationUrl: string | null): string {
+  const text = buildEmergencyShareText(destName);
+  const url = liveLocationUrl?.trim();
+  return url ? `${text}\n${url}` : text;
+}
+
+/**
+ * 귀가 완료 메시지를 보호자에게 보낼 전문(메시지 + 선택적 위치 링크)으로 합성한다.
+ * composeEmergencyShareMessage와 동일하게, 실제 토큰 링크가 없으면 깨진 `/share` 링크를
+ * 붙이지 않고 도착 사실만 전한다.
+ */
+export function composeArrivalShareMessage(destName: string, liveLocationUrl: string | null): string {
+  const text = buildArrivalShareText(destName);
+  const url = liveLocationUrl?.trim();
+  return url ? `${text}\n${url}` : text;
+}
+
+/**
  * 귀가 완료를 보호자에게 알릴 메시지 본문을 만든다.
  * 목적지를 포함해 수신자가 어디에 도착했는지 알 수 있게 한다(빈 목적지는 안전 기본 라벨로 폴백).
  * (기존엔 NavigationScreen 인라인 문자열이라 미테스트였고, 목적지 미선택 시 "목적지에 도착"이라는
