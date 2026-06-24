@@ -5,6 +5,7 @@ import {
   buildEmergencyShareText,
   buildReturnShareText,
   buildArrivalShareText,
+  composeReturnShareMessage,
 } from './share';
 
 describe('isUserCancelledShare', () => {
@@ -99,6 +100,34 @@ describe('buildReturnShareText', () => {
   it('목적지가 비면 빈 라벨 없이 기본 라벨로 폴백', () => {
     expect(buildReturnShareText('')).toContain('목적지(으)로 이동 중');
     expect(buildReturnShareText('   ')).toContain('목적지(으)로 이동 중');
+  });
+});
+
+describe('composeReturnShareMessage', () => {
+  it('실시간 위치 링크가 있으면 위치 확인 약속 + 링크를 포함한다', () => {
+    const msg = composeReturnShareMessage('강남역', 'https://app.test/share/abc123');
+    expect(msg).toContain('강남역(으)로 이동 중');
+    expect(msg).toContain('실시간 위치를 확인해 주세요');
+    expect(msg).toContain('https://app.test/share/abc123');
+  });
+
+  it('링크가 없으면(공유 서버 미설정) 깨진 링크·거짓 위치 약속 없이 이동 사실만 정직하게 전한다', () => {
+    const msg = composeReturnShareMessage('강남역', null);
+    expect(msg).toContain('강남역(으)로 이동 중');
+    // 보낼 수 있는 실시간 위치가 없으므로 거짓 약속/링크를 넣지 않는다.
+    expect(msg).not.toContain('실시간 위치를 확인해 주세요');
+    expect(msg).not.toContain('http');
+    expect(msg).not.toContain('/share');
+  });
+
+  it('빈 문자열 링크도 링크 없음으로 취급(깨진 링크 방지)', () => {
+    const msg = composeReturnShareMessage('강남역', '   ');
+    expect(msg).not.toContain('실시간 위치를 확인해 주세요');
+  });
+
+  it('목적지가 비면 기본 라벨로 폴백', () => {
+    expect(composeReturnShareMessage('', null)).toContain('목적지(으)로 이동 중');
+    expect(composeReturnShareMessage('   ', 'https://app.test/share/x')).toContain('목적지(으)로 이동 중');
   });
 });
 

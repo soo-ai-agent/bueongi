@@ -70,6 +70,24 @@ export function buildReturnShareText(destName: string): string {
 }
 
 /**
+ * 보호자에게 보낼 안심귀가 공유 전문(메시지 + 선택적 위치 링크)을 정직하게 합성한다.
+ *
+ * - liveLocationUrl이 있으면: "실시간 위치를 확인해 주세요" 약속 + 링크를 포함한다.
+ * - liveLocationUrl이 없으면(공유 서버 미설정/토큰 생성 실패): 약속도 링크도 넣지 않고
+ *   이동 사실만 전한다. 토큰 없는 `/share`는 발신자 본인 화면으로 라우팅되므로,
+ *   보호자가 열면 위치 대신 무의미한 화면이 떠 "실시간 위치 확인" 약속이 거짓이 된다 —
+ *   그 거짓 확신/깨진 링크를 원천 차단한다.
+ */
+export function composeReturnShareMessage(destName: string, liveLocationUrl: string | null): string {
+  const url = liveLocationUrl?.trim();
+  if (url) {
+    return `${buildReturnShareText(destName)}\n${url}`;
+  }
+  const where = destName.trim() || '목적지';
+  return `[부엉이 안심귀가] ${where}(으)로 이동 중입니다.`;
+}
+
+/**
  * 귀가 완료를 보호자에게 알릴 메시지 본문을 만든다.
  * 목적지를 포함해 수신자가 어디에 도착했는지 알 수 있게 한다(빈 목적지는 안전 기본 라벨로 폴백).
  * (기존엔 NavigationScreen 인라인 문자열이라 미테스트였고, 목적지 미선택 시 "목적지에 도착"이라는
