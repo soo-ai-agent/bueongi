@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { GuardianShare, deriveState, formatUpdatedAt } from './GuardianShare';
+import { GuardianShare, deriveState, formatUpdatedAt, isLocationStale } from './GuardianShare';
 
 describe('deriveState', () => {
   it('만료면 expired', () => {
@@ -46,6 +46,32 @@ describe('formatUpdatedAt', () => {
 
   it('파싱 불가 시각은 안전 폴백', () => {
     expect(formatUpdatedAt('not-a-date', now)).toBe('갱신 시각 미상');
+  });
+});
+
+describe('isLocationStale', () => {
+  const now = Date.parse('2026-06-19T09:00:00Z');
+
+  it('갱신 시각이 없으면 stale 아님(별도 waiting으로 처리됨)', () => {
+    expect(isLocationStale(null, now)).toBe(false);
+  });
+
+  it('임계값 이내(최근 갱신)면 stale 아님 → live 유지', () => {
+    // 10초 전: 5초 폴링 주기 안에서 정상.
+    expect(isLocationStale('2026-06-19T08:59:50Z', now)).toBe(false);
+  });
+
+  it('임계값 초과(오래된 갱신)면 stale → live로 거짓표기 금지', () => {
+    // 60초 전: 갱신이 끊긴 것으로 보고 실시간 표기를 내린다.
+    expect(isLocationStale('2026-06-19T08:59:00Z', now)).toBe(true);
+  });
+
+  it('미래 시각(기기 시계 차이)은 stale 아님', () => {
+    expect(isLocationStale('2026-06-19T09:00:10Z', now)).toBe(false);
+  });
+
+  it('파싱 불가 시각은 신선도 확인 불가 → 보수적으로 stale', () => {
+    expect(isLocationStale('not-a-date', now)).toBe(true);
   });
 });
 

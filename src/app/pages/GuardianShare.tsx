@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { MapPin, Loader2, Clock, ShieldAlert, RefreshCw } from 'lucide-react';
+import { MapPin, Loader2, Clock, ShieldAlert, RefreshCw, WifiOff } from 'lucide-react';
 import { RouteMap } from '../components/map/RouteMap';
 import { getShareLocation, type ShareLocationResponse } from '../utils/shareSession';
 
@@ -16,7 +16,15 @@ import { getShareLocation, type ShareLocationResponse } from '../utils/shareSess
 
 export const GUARDIAN_POLL_INTERVAL_MS = 5000;
 
-type GuardianState = 'loading' | 'live' | 'waiting' | 'expired' | 'error';
+/**
+ * 위치 갱신이 이 시간보다 오래되면 '실시간'으로 더는 표기하지 않는다(stale).
+ * 5초 폴링/전송 주기의 6배 — 일시적 한두 틱 누락엔 관대하되,
+ * 공유자의 GPS/네트워크가 끊겨 위치가 멈춘 상태를 보호자에게 '실시간'으로
+ * 거짓 표기(가짜 안내)하는 것은 차단한다.
+ */
+export const GUARDIAN_STALE_THRESHOLD_MS = 30_000;
+
+type GuardianState = 'loading' | 'live' | 'stale' | 'waiting' | 'expired' | 'error';
 
 interface GuardianView {
   state: GuardianState;
@@ -29,6 +37,23 @@ export function deriveState(res: ShareLocationResponse): GuardianState {
   if (res.expired) return 'expired';
   if (res.lat === null || res.lng === null) return 'waiting';
   return 'live';
+}
+
+/**
+ * 마지막 위치 갱신이 임계값보다 오래됐는지(=실시간 표기를 내려야 하는지) 판정한다.
+ * - 갱신 시각 없음(null): waiting으로 별도 처리되므로 stale 아님(false).
+ * - 미래 시각(기기 시계 차이): 음수 경과 → stale 아님.
+ * - 파싱 불가: 신선도를 확인할 수 없으므로 보수적으로 stale(true) — 거짓 '실시간' 금지.
+ */
+export function isLocationStale(
+  updatedAt: string | null,
+  now: number,
+  thresholdMs: number = GUARDIAN_STALE_THRESHOLD_MS,
+): boolean {
+  if (!updatedAt) return false;
+  const ts = Date.parse(updatedAt);
+  if (!Number.isFinite(ts)) return true;
+  return now - ts > thresholdMs;
 }
 
 export function formatUpdatedAt(updatedAt: string | null, now: number): string {
@@ -83,6 +108,11 @@ export function GuardianShare() {
   const hasLocation = view.lat !== null && view.lng !== null;
   const location = hasLocation ? { lat: view.lat as number, lng: view.lng as number } : null;
 
+  // live지만 마지막 갱신이 오래됐으면 '실시간'을 내리고 stale로 표기한다(거짓 안내 차단).
+  // now가 1초마다 틱하므로 신선도는 저장값이 아닌 렌더 시점에 계산한다.
+  const effectiveState: GuardianState =
+    view.state === 'live' && isLocationStale(view.updatedAt, now) ? 'stale' : view.state;
+
   return (
     <div className="flex flex-col h-full bg-slate-800" data-testid="guardian-share">
       <header className="px-4 py-4 pt-6 border-b border-slate-700 bg-slate-800">
@@ -94,22 +124,33 @@ export function GuardianShare() {
       </header>
 
       <div className="relative flex-1 min-h-0">
-        {/* live/waiting/error는 지도를 유지하고, expired만 지도를 가린다(깨진 지도 방지). */}
-        {view.state !== 'expired' && (
-          <RouteMap destination={location} showRoute={false} active={view.state === 'live'} />
+        {/* live/stale/waiting/error는 지도(마지막 위치)를 유지하고, expired만 지도를 가린다.
+            stale은 마지막 위치는 보여주되 active를 꺼 '실시간'으로 오인시키지 않는다. */}
+        {effectiveState !== 'expired' && (
+          <RouteMap destination={location} showRoute={false} active={effectiveState === 'live'} />
         )}
 
         {/* 상태 오버레이 */}
-        {view.state === 'loading' && (
+        {effectiveState === 'loading' && (
           <StatusOverlay testid="guardian-loading" icon={<Loader2 className="w-8 h-8 text-blue-300 animate-spin" />} title="위치를 불러오는 중" desc="잠시만 기다려 주세요." />
         )}
-        {view.state === 'waiting' && (
+        {effectiveState === 'waiting' && (
           <StatusOverlay testid="guardian-waiting" icon={<Clock className="w-8 h-8 text-amber-300" />} title="아직 위치를 받는 중" desc="공유자가 이동을 시작하면 위치가 표시됩니다." />
         )}
-        {view.state === 'expired' && (
+        {effectiveState === 'stale' && (
+          <div className="absolute inset-x-0 top-0 z-30 p-4" data-testid="guardian-stale">
+            <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-3 flex items-center gap-2.5">
+              <WifiOff className="w-5 h-5 text-amber-300 shrink-0" />
+              <p className="text-amber-100 text-sm leading-snug">
+                실시간 갱신이 끊겼어요. 아래는 마지막으로 받은 위치입니다.
+              </p>
+            </div>
+          </div>
+        )}
+        {effectiveState === 'expired' && (
           <StatusOverlay testid="guardian-expired" icon={<ShieldAlert className="w-8 h-8 text-rose-300" />} title="공유가 종료되었어요" desc="공유 시간이 만료되었거나 중단되었습니다." />
         )}
-        {view.state === 'error' && (
+        {effectiveState === 'error' && (
           <div className="absolute inset-x-0 bottom-0 z-30 p-4">
             <div className="bg-slate-700/95 border border-slate-600 rounded-2xl p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-slate-200 text-sm">
@@ -128,7 +169,7 @@ export function GuardianShare() {
         )}
       </div>
 
-      {(view.state === 'live' || view.state === 'waiting') && (
+      {(effectiveState === 'live' || effectiveState === 'stale' || effectiveState === 'waiting') && (
         <div className="px-4 py-3 border-t border-slate-700 bg-slate-800 flex items-center justify-between">
           <span className="text-slate-400 text-sm">마지막 갱신</span>
           <span className="text-slate-100 font-medium text-sm" data-testid="guardian-updated-at">
