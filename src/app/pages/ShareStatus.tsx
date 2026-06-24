@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { isUserCancelledShare, buildReturnShareText } from '../utils/share';
 import { createShare, isShareApiConfigured } from '../utils/shareSession';
+import { startShareLocationLoop } from '../utils/shareLocationLoop';
+import { getBrowserCurrentLocation } from '../utils/currentLocation';
 
 // 공유 상태: 수신 여부가 아닌 '사용자가 취한 행동'만 정직하게 표시(거짓 "전달됨" 금지).
 type ShareAction = 'idle' | 'shared' | 'copied';
@@ -29,16 +31,25 @@ export function ShareStatus() {
   useEffect(() => {
     if (!isShareApiConfigured()) return; // 미설정 시 정적 링크 폴백 유지
     let cancelled = false;
+    let stopLoop: (() => void) | null = null;
     // 공유 화면 진입 시 1시간 TTL 공유 토큰을 만들어 보호자 URL을 준비한다.
     createShare(1)
       .then((res) => {
-        if (!cancelled) setShareUrl(`${window.location.origin}/share/${res.token}`);
+        if (cancelled) return;
+        setShareUrl(`${window.location.origin}/share/${res.token}`);
+        // 토큰이 준비되면 공유 중 5초마다 현재 위치를 서버로 보낸다(보호자 웹 폴링과 짝).
+        // GPS 실패는 틱 단위로 건너뛰고, 서버 만료(404)면 루프가 스스로 멈춘다.
+        const handle = startShareLocationLoop(res.token, {
+          getLocation: () => getBrowserCurrentLocation().catch(() => null),
+        });
+        stopLoop = handle.stop;
       })
       .catch(() => {
         // 생성 실패 시 정적 링크 폴백을 유지(거짓확신 없이 조용히 폴백).
       });
     return () => {
       cancelled = true;
+      stopLoop?.();
     };
   }, []);
 
