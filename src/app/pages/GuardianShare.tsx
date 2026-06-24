@@ -59,6 +59,30 @@ export function isLocationStale(
   return now - ts > thresholdMs;
 }
 
+/**
+ * 헤더 부제 문구를 상태에 맞춰 돌려준다.
+ * '5초마다 갱신'(실시간 약속)은 실제로 갱신이 흐르는 live에서만 노출한다.
+ * stale(끊김)·expired(종료)·error·waiting·loading에서 같은 약속을 그대로 두면
+ * 보호자에게 갱신이 멈췄거나 끝난 위치를 '5초마다 갱신'으로 거짓 표기하게 된다.
+ */
+export function headerSubtitle(state: GuardianState): string {
+  switch (state) {
+    case 'live':
+      return '보호자에게 공유된 안심귀가 위치입니다 · 5초마다 갱신';
+    case 'stale':
+      return '실시간 갱신이 끊겼습니다 · 마지막으로 받은 위치 표시 중';
+    case 'expired':
+      return '공유가 종료되어 더 이상 갱신되지 않습니다';
+    case 'error':
+      return '연결이 일시적으로 끊겼습니다 · 다시 연결을 시도하는 중';
+    case 'waiting':
+      return '공유자의 위치를 기다리는 중입니다';
+    case 'loading':
+    default:
+      return '공유된 안심귀가 위치를 불러오는 중입니다';
+  }
+}
+
 export function formatUpdatedAt(updatedAt: string | null, now: number): string {
   if (!updatedAt) return '아직 위치 없음';
   const ts = Date.parse(updatedAt);
@@ -123,7 +147,7 @@ export function GuardianShare() {
           <MapPin className="w-5 h-5 text-blue-300" />
           <h1 className="text-lg font-bold text-slate-50">실시간 위치 공유</h1>
         </div>
-        <p className="text-slate-400 text-sm mt-1">보호자에게 공유된 안심귀가 위치입니다 · 5초마다 갱신</p>
+        <p className="text-slate-400 text-sm mt-1">{headerSubtitle(effectiveState)}</p>
       </header>
 
       <div className="relative flex-1 min-h-0">

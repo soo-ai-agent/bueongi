@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { GuardianShare, deriveState, formatUpdatedAt, isLocationStale } from './GuardianShare';
+import { GuardianShare, deriveState, formatUpdatedAt, headerSubtitle, isLocationStale } from './GuardianShare';
 
 describe('deriveState', () => {
   it('만료면 expired', () => {
@@ -83,6 +83,34 @@ describe('isLocationStale', () => {
     const live = deriveState({ lat: 37.5, lng: 127, updatedAt: null, expired: false });
     expect(live).toBe('live');
     expect(isLocationStale(null, now)).toBe(true);
+  });
+});
+
+describe('headerSubtitle', () => {
+  it('live일 때만 "5초마다 갱신"을 약속한다', () => {
+    expect(headerSubtitle('live')).toContain('5초마다 갱신');
+  });
+
+  it('stale(갱신 끊김)에는 "5초마다 갱신" 거짓 약속을 하지 않는다', () => {
+    const sub = headerSubtitle('stale');
+    expect(sub).not.toContain('5초마다 갱신');
+    expect(sub).toContain('마지막');
+  });
+
+  it('expired(종료)에는 갱신 약속 대신 종료를 알린다', () => {
+    const sub = headerSubtitle('expired');
+    expect(sub).not.toContain('5초마다 갱신');
+    expect(sub).toContain('종료');
+  });
+
+  it('error(끊김)에는 "5초마다 갱신" 단정 대신 재시도 안내를 한다', () => {
+    const sub = headerSubtitle('error');
+    expect(sub).not.toContain('5초마다 갱신');
+  });
+
+  it('waiting/loading에도 아직 받지 못한 갱신을 단정하지 않는다', () => {
+    expect(headerSubtitle('waiting')).not.toContain('5초마다 갱신');
+    expect(headerSubtitle('loading')).not.toContain('5초마다 갱신');
   });
 });
 
