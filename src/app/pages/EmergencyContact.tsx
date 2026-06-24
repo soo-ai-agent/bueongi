@@ -2,7 +2,7 @@ import { ArrowLeft, Phone, Plus, X, UserCircle2, AlertCircle } from 'lucide-reac
 import { useNavigate } from 'react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '../components/ui/button';
+import { Button } from '../components/ui/Button';
 import { useApp, MAX_CONTACTS } from '../store/appStore';
 
 export function EmergencyContact() {

@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
 import { Tag, type TagVariant } from '../components/ui/Tag';
-import { Button } from '../components/ui/button';
+import { Button } from '../components/ui/Button';
 import { useApp } from '../store/appStore';
 import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';

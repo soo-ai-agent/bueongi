@@ -1,7 +1,7 @@
 import { ArrowLeft, MapPin, Crosshair } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { RouteMap } from '../components/map/RouteMap';
-import { Button } from '../components/ui/button';
+import { Button } from '../components/ui/Button';
 import { useApp } from '../store/appStore';
 import { getRouteDestinationContext } from '../utils/routeSelection';
 
