@@ -117,6 +117,23 @@ describe('linkItemsToPaths (A-2 ↔ A-1 LINK_ID 연계)', () => {
     expect(linked).toHaveLength(2);
     expect(linked.every((p) => p.itemCount === 0)).toBe(true);
   });
+
+  it('같은 LINK_ID 경로가 둘이면 첫 경로에만 시설을 붙인다(안전점수 이중가산 차단)', () => {
+    // 서울 원천에 동일 LINK_ID 행이 중복돼도 같은 시설물이 두 경로에 가산되면
+    // 겹침 보너스가 부풀어 거짓으로 더 안전한 경로처럼 보인다 — consumed dedup 회귀 가드.
+    const dupPaths = [
+      { id: 'DUP', coords: [{ lat: 37.5, lng: 127.0 }, { lat: 37.51, lng: 127.01 }] },
+      { id: 'DUP', coords: [{ lat: 37.5, lng: 127.0 }, { lat: 37.51, lng: 127.01 }] },
+    ];
+    const items: SeoulSafeItem[] = [
+      { coords: { lat: 37.5, lng: 127.0 }, linkId: 'DUP' },
+      { coords: { lat: 37.505, lng: 127.005 }, linkId: 'DUP' },
+    ];
+    const linked = linkItemsToPaths(dupPaths, items);
+    expect(linked.map((p) => p.itemCount)).toEqual([2, 0]);
+    // 동일 시설물이 두 경로 합산으로 중복 계상되지 않는다.
+    expect(linked.reduce((sum, p) => sum + p.itemCount, 0)).toBe(items.length);
+  });
 });
 
 describe('extractSeoulRows', () => {
