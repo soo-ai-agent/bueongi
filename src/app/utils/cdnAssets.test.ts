@@ -109,9 +109,9 @@ describe('loadPolice / loadSafepath', () => {
 });
 
 describe('fileVersion', () => {
-  it('파일별 버전 우선, 없으면 manifest 전체 버전', () => {
-    const manifest: CdnManifest = { version: 'v9', files: { 'cctv/11680.json': { version: 'v2' } } };
-    expect(fileVersion(manifest, 'cctv/11680.json')).toBe('v2');
+  it('파일별 sha256 우선(파이프라인 배열 계약), 없으면 manifest 전체 버전', () => {
+    const manifest: CdnManifest = { version: 'v9', files: [{ path: 'cctv/11680.json', sha256: 'abc123' }] };
+    expect(fileVersion(manifest, 'cctv/11680.json')).toBe('abc123');
     expect(fileVersion(manifest, 'safehouse/all.json')).toBe('v9');
   });
 });
