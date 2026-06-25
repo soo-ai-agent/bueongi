@@ -1,4 +1,5 @@
 import { RouteMap } from '../components/map/RouteMap';
+import { EtaBadge } from '../components/EtaBadge';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon } from 'lucide-react';
@@ -137,6 +138,10 @@ export function NavigationScreen() {
         <div className="bg-emerald-500/20 backdrop-blur-md text-emerald-300 font-bold px-6 py-3.5 rounded-full shadow-lg border border-emerald-400/30 flex items-center justify-center gap-3 max-w-[200px] mx-auto pointer-events-auto">
           <span className="text-xl">🦉</span>
           부엉이 동행 중
+        </div>
+        {/* 예상 도착 시간(ETA) 배지 */}
+        <div className="flex justify-center mt-3">
+          <EtaBadge minutes={timeLeft} />
         </div>
       </motion.div>
 
