@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getApiErrorUserMessage } from './apiError';
-import { fetchPlaces, filterPlaces, searchPlacesWithFallback } from './placeSearch';
+import { fetchPlaces, filterPlaces, kakaoPlaceToDestination, searchPlacesWithFallback } from './placeSearch';
 import type { Destination } from '../store/appStore';
 
 const catalog: Destination[] = [
@@ -121,7 +121,8 @@ describe('fetchPlaces', () => {
 });
 
 describe('searchPlacesWithFallback', () => {
-  it('API 실패 시 mock 카탈로그 필터 결과로 폴백한다', async () => {
+  it('Kakao SDK 미가용(테스트 env) + API 실패 시 mock 카탈로그로 폴백한다', async () => {
+    // 테스트 env에는 Kakao 지도 SDK가 없어 searchPlacesViaKakao 가 null → 백엔드 → 카탈로그 순.
     const fetchImpl = vi.fn(async () => {
       throw new TypeError('network down');
     });
@@ -129,5 +130,52 @@ describe('searchPlacesWithFallback', () => {
     await expect(searchPlacesWithFallback('강남역', catalog, { fetchImpl })).resolves.toEqual([
       { name: '강남역 2번 출구', address: '서울 강남구 강남대로 396', lat: 37.4979, lng: 127.0276 },
     ]);
+  });
+
+  it('Kakao SDK 미가용 시 백엔드 결과를 우선 반환한다', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify([{ name: '백엔드결과', address: '서울 어딘가', lat: 37.5, lng: 127.0 }]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    await expect(searchPlacesWithFallback('강남', catalog, { fetchImpl })).resolves.toEqual([
+      { name: '백엔드결과', address: '서울 어딘가', lat: 37.5, lng: 127.0 },
+    ]);
+  });
+});
+
+describe('kakaoPlaceToDestination', () => {
+  it('Kakao Local 장소를 Destination으로 변환(도로명 우선, x=lng/y=lat)', () => {
+    expect(
+      kakaoPlaceToDestination({
+        place_name: '스타벅스 강남대로점',
+        road_address_name: '서울 강남구 강남대로 123',
+        address_name: '서울 강남구 역삼동 1',
+        x: '127.0276',
+        y: '37.4979',
+      }),
+    ).toEqual({
+      name: '스타벅스 강남대로점',
+      address: '서울 강남구 강남대로 123',
+      lat: 37.4979,
+      lng: 127.0276,
+    });
+  });
+
+  it('도로명 없으면 지번 주소로 폴백', () => {
+    const d = kakaoPlaceToDestination({
+      place_name: '어떤가게',
+      address_name: '서울 강남구 역삼동 7',
+      x: '127.03',
+      y: '37.50',
+    });
+    expect(d?.address).toBe('서울 강남구 역삼동 7');
+  });
+
+  it('이름 없거나 좌표 비정상이면 null', () => {
+    expect(kakaoPlaceToDestination({ place_name: '', x: '127', y: '37' })).toBeNull();
+    expect(kakaoPlaceToDestination({ place_name: 'x', x: 'NaN', y: '37' })).toBeNull();
+    expect(kakaoPlaceToDestination({ place_name: 'x', x: '999', y: '37' })).toBeNull();
   });
 });

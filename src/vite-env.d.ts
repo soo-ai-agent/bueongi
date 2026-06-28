@@ -52,8 +52,26 @@ interface KakaoGeocoder {
   ): void;
 }
 
+/** 키워드 장소검색 결과 1건(Kakao Local). x=경도(lng), y=위도(lat) 문자열. */
+interface KakaoPlace {
+  place_name: string;
+  address_name?: string;
+  road_address_name?: string;
+  x: string;
+  y: string;
+}
+
+interface KakaoPlaces {
+  keywordSearch(
+    keyword: string,
+    callback: (result: KakaoPlace[], status: KakaoServicesStatus) => void,
+    options?: { size?: number },
+  ): void;
+}
+
 interface KakaoMapsServices {
   Geocoder: new () => KakaoGeocoder;
+  Places: new () => KakaoPlaces;
   Status: { OK: KakaoServicesStatus; ZERO_RESULT: KakaoServicesStatus; ERROR: KakaoServicesStatus };
 }
 
