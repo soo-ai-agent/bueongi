@@ -156,6 +156,7 @@ export function RouteDetail() {
           routeType={route.type}
           pois={detailPois}
           zoom={1.5}
+          path={'path' in route ? route.path : undefined}
         />
       </div>
 

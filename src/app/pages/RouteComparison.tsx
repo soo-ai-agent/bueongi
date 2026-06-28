@@ -261,6 +261,7 @@ export function RouteComparison() {
           showRoute={hasOrigin}
           routeType={hasOrigin ? previewRouteType : 'safe'}
           pois={getRouteComparisonMapPois(hasOrigin, directMarkersByType[previewRouteType], previewFacilities)}
+          path={(displayRoutes.find((r): r is RouteOption => r.type === previewRouteType && 'path' in r))?.path}
         />
       </div>
 
