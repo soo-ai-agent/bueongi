@@ -1,6 +1,6 @@
 import { ArrowLeft, ShieldAlert, Navigation2, MapPin, LocateFixed, LoaderCircle, Video, Bell, Store, Shield, Home, Info } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { RouteMap } from '../components/map/RouteMap';
+import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import { Tag } from '../components/ui/Tag';
@@ -58,6 +58,25 @@ export function getRouteDetailFacilitySummary(facilities: FacilitiesResponse | n
   return facilities?.pois.length ? facilities.summary : fallbackFacilitySummary;
 }
 
+/**
+ * 백엔드 안심 라우팅 markers(회랑 내 시설 + 출발/도착)에서 시설 카운트를 집계한다.
+ * start/end는 시설이 아니므로 제외한다 — "보이는 것만 센다" 원칙(지도 마커와 항상 일치).
+ */
+export function summarizeRouteMarkers(markers: RouteMapPoi[]): FacilitySummary {
+  const count = (type: RouteMapPoi['type']) => markers.filter((m) => m.type === type).length;
+  const cctv = count('cctv');
+  const bell = count('bell');
+  const store = count('store');
+  const police = count('police');
+  const safehouse = count('safehouse');
+  return { cctv, bell, store, police, safehouse, total: cctv + bell + store + police + safehouse };
+}
+
+/** origin 확인 전에는 목적지(end) 마커만, 이후에는 전체 markers를 지도에 표시한다. */
+export function getVisibleRouteMarkers(hasOrigin: boolean, markers: RouteMapPoi[]): RouteMapPoi[] {
+  return hasOrigin ? markers : markers.filter((m) => m.type === 'end');
+}
+
 export function RouteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -72,9 +91,12 @@ export function RouteDetail() {
   const [facilitiesLoading, setFacilitiesLoading] = useState(false);
   const [facilitiesError, setFacilitiesError] = useState<string | null>(null);
   const hasOrigin = routeOrigin !== null;
+  // 백엔드 안심 라우팅이 준 거점 마커. 있으면 facilities preview 호출을 생략하고 이 마커를 쓴다.
+  const routeMarkers = 'markers' in route && route.markers && route.markers.length > 0 ? route.markers : undefined;
 
   useEffect(() => {
-    if (!canRequestRoute || !destination || !routeOrigin) {
+    // 백엔드 markers가 있으면 레거시 facilities preview 호출을 생략한다(점수/마커 일관성).
+    if (!canRequestRoute || !destination || !routeOrigin || routeMarkers) {
       setFacilities(null);
       setFacilitiesLoading(false);
       setFacilitiesError(null);
@@ -103,7 +125,7 @@ export function RouteDetail() {
       });
 
     return () => controller.abort();
-  }, [canRequestRoute, destination, route.type, routeOrigin]);
+  }, [canRequestRoute, destination, route.type, routeOrigin, routeMarkers]);
 
   const requestOrigin = async () => {
     setOriginLoading(true);
@@ -136,9 +158,10 @@ export function RouteDetail() {
     );
   }
 
-  const facilitySummary = getRouteDetailFacilitySummary(facilities);
-  const detailPois = getVisibleRouteDetailPois(hasOrigin, facilities);
-  const safehouseCount = getSafehouseCount(facilities, detailPois);
+  // 백엔드 markers가 있으면 그 마커로 시설 카운트/지도 마커를 구성하고, 없으면 레거시 facilities preview로 폴백.
+  const facilitySummary = routeMarkers ? summarizeRouteMarkers(routeMarkers) : getRouteDetailFacilitySummary(facilities);
+  const detailPois = routeMarkers ? getVisibleRouteMarkers(hasOrigin, routeMarkers) : getVisibleRouteDetailPois(hasOrigin, facilities);
+  const safehouseCount = routeMarkers ? (facilitySummary.safehouse ?? 0) : getSafehouseCount(facilities, detailPois);
 
   return (
     <div className="flex flex-col h-full bg-slate-800 relative">

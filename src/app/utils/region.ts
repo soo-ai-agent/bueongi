@@ -1,6 +1,11 @@
 import type { LatLng } from './routeCompare';
-import type { RegionInfo } from './routeSource';
 import { loadKakaoServices } from './kakaoMaps';
+
+/** 현재 위치를 행정구역으로 해석한 결과(시군구 코드 + 서울 여부). */
+export interface RegionInfo {
+  sigunguCode: string;
+  isSeoul: boolean;
+}
 
 /**
  * 현재 위치 → 시군구코드/서울 여부 해석기(안심 경로 추천의 서울/비서울 분기 입력).

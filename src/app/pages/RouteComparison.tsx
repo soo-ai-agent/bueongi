@@ -9,7 +9,7 @@ import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { type RouteOption, type RouteOptionTag } from '../utils/routeCompare';
 import { loadComparisonRouteResult } from '../utils/routeSource';
-import { resolveRegionViaKakao } from '../utils/region';
+import type { SafetyPreference } from '../utils/safeCompare';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi } from '../utils/routeFacilities';
 import { getApiErrorUserMessage, reportApiError } from '../utils/apiError';
 
@@ -58,6 +58,13 @@ export function getRouteComparisonMapPois(
   if (hasOrigin && directMarkers && directMarkers.length > 0) return directMarkers;
   return getVisibleRouteComparisonPois(hasOrigin, facilities);
 }
+
+/** 안심 강도 세그먼트 토글 옵션. 기본은 "안심 우선"(safe). */
+export const SAFETY_PREFERENCE_OPTIONS: { value: SafetyPreference; label: string }[] = [
+  { value: 'balanced', label: '균형' },
+  { value: 'safe', label: '안심 우선' },
+  { value: 'safest', label: '안심 최우선' },
+];
 
 export function getRouteComparisonPreviewType(
   routes: Array<{ type: RouteType }>,
@@ -121,6 +128,8 @@ export function RouteComparison() {
   // 직접 호출(Tmap+CDN) 경로의 거점 마커 — 점수와 일관된 CCTV/안심집/비상벨. 있으면 레거시 백엔드 facilities보다 우선.
   const [directMarkersByType, setDirectMarkersByType] = useState<Partial<Record<RouteType, RouteMapPoi[]>>>({});
   const [activePreviewRouteType, setActivePreviewRouteType] = useState<RouteType>('safe');
+  // 안심 강도(균형/안심 우선/안심 최우선). 변경 시 백엔드 safe-compare를 재요청한다.
+  const [safetyPreference, setSafetyPreference] = useState<SafetyPreference>('safe');
   const hasOrigin = routeOrigin !== null;
   const displayRoutes: DisplayRoute[] = routeOptions.length > 0 ? routeOptions : mockRoutes;
   const previewRouteType = getRouteComparisonPreviewType(displayRoutes, activePreviewRouteType);
@@ -142,11 +151,11 @@ export function RouteComparison() {
     setRouteOptionsLoading(true);
     setRouteOptionsError(null);
 
-    // 앱 직접 호출 우선: Tmap AppKey가 있으면 Tmap+CDN 점수, 없으면 백엔드 폴백.
-    // resolveRegion으로 현재 위치를 시군구/서울 여부로 해석 → CDN 시설 점수 + 서울 A-1 보너스 분기.
+    // 백엔드 안심 라우팅: 실 Tmap 호출 + 공공데이터 안전점수 + 경유지 우회는 서버가 담당.
+    // 안심 강도(safetyPreference)만 전달하고, 프론트는 결과(RouteOption[])를 표시만 한다.
     loadComparisonRouteResult(destination, routeOrigin, {
       signal: controller.signal,
-      resolveRegion: resolveRegionViaKakao,
+      safetyPreference,
     })
       .then(({ routes, markersByType }) => {
         setRouteOptions(routes);
@@ -171,7 +180,7 @@ export function RouteComparison() {
       });
 
     return () => controller.abort();
-  }, [canRequestRoute, destination, hasOrigin, routeOrigin]);
+  }, [canRequestRoute, destination, hasOrigin, routeOrigin, safetyPreference]);
 
   useEffect(() => {
     if (!hasOrigin || !destination || !canRequestRoute) {
@@ -272,8 +281,34 @@ export function RouteComparison() {
         </div>
         <div className="px-6 pb-3 pt-2">
           <h2 className="text-xl font-bold text-slate-50">경로 선택</h2>
+          {hasOrigin && (
+            <div
+              role="radiogroup"
+              aria-label="안심 강도"
+              className="mt-3 flex gap-1 rounded-[16px] border border-slate-600 bg-slate-700 p-1"
+            >
+              {SAFETY_PREFERENCE_OPTIONS.map((option) => {
+                const selected = option.value === safetyPreference;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    data-testid="safety-preference-option"
+                    aria-checked={selected}
+                    onClick={() => setSafetyPreference(option.value)}
+                    className={`flex-1 rounded-[12px] px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700 ${
+                      selected ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-        
+
         <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3">
           {!hasOrigin && (
             <div className="p-5 rounded-[24px] border border-slate-600 bg-slate-700 shadow-sm">
