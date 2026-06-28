@@ -40,6 +40,75 @@ describe('parseTmapResponse', () => {
       ],
       distanceM: 1234,
       timeS: 789,
+      steps: [
+        {
+          index: 0,
+          lat: 37.4979,
+          lng: 127.0276,
+          description: '',
+          turnType: 0,
+          distanceM: 0,
+          timeS: 0,
+          pointType: '',
+        },
+      ],
+    });
+  });
+
+  it('Point feature를 단계별 안내(steps)로 파싱하고 index 오름차순 정렬한다', () => {
+    const parsed = parseTmapResponse({
+      features: [
+        {
+          geometry: { type: 'Point', coordinates: [127.01, 37.52] },
+          properties: {
+            index: 1,
+            description: '150m 이동 후 좌회전',
+            turnType: 12,
+            distance: 150,
+            time: 120,
+            pointType: 'GP',
+          },
+        },
+        {
+          geometry: { type: 'Point', coordinates: [127.0276, 37.4979] },
+          properties: {
+            index: 0,
+            description: '출발지',
+            turnType: 211,
+            distance: 0,
+            time: 0,
+            pointType: 'SP',
+          },
+        },
+        {
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [127.0276, 37.4979],
+              [127.01, 37.52],
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.steps.map((s) => s.index)).toEqual([0, 1]);
+    expect(parsed.steps[0]).toEqual({
+      index: 0,
+      lat: 37.4979,
+      lng: 127.0276,
+      description: '출발지',
+      turnType: 211,
+      distanceM: 0,
+      timeS: 0,
+      pointType: 'SP',
+    });
+    expect(parsed.steps[1]).toMatchObject({
+      description: '150m 이동 후 좌회전',
+      turnType: 12,
+      distanceM: 150,
+      timeS: 120,
+      pointType: 'GP',
     });
   });
 
@@ -184,6 +253,18 @@ describe('fetchTmapPedestrianRoutes', () => {
         ],
         distanceM: 1234,
         timeS: 789,
+        steps: [
+          {
+            index: 0,
+            lat: 37.4979,
+            lng: 127.0276,
+            description: '',
+            turnType: 0,
+            distanceM: 0,
+            timeS: 0,
+            pointType: '',
+          },
+        ],
       },
     ]);
   });

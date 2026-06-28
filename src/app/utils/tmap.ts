@@ -24,6 +24,23 @@ export const TMAP_SEARCH_OPTION_LABEL: Record<TmapSearchOption, string> = {
   '30': '계단제외',
 };
 
+/** Tmap 보행자 경로의 단계별 안내 지점(좌회전/직진 등). */
+export interface NavStep {
+  index: number;
+  lat: number;
+  lng: number;
+  /** "150m 이동 후 좌회전" 등 안내 문구. */
+  description: string;
+  /** 11=직진 12=좌회전 13=우회전 14=U턴 125=육교 126=지하보도 211=출발 212=도착. */
+  turnType: number;
+  /** 이 지점→다음 지점 거리(m). */
+  distanceM: number;
+  /** 이 지점→다음 지점 시간(s). */
+  timeS: number;
+  /** 'SP'=출발, 'EP'=도착, 'GP'=경유 등. */
+  pointType: string;
+}
+
 export interface TmapRoute {
   searchOption: TmapSearchOption;
   /** 경로 라인 좌표열(WGS84). 안전 점수/마커 투영의 원천. */
@@ -32,6 +49,8 @@ export interface TmapRoute {
   distanceM: number;
   /** 총 소요 시간(s). */
   timeS: number;
+  /** 단계별 길안내 지점(index 오름차순). 키 미설정/폴백 시 빈 배열. */
+  steps: NavStep[];
 }
 
 export interface TmapClientOptions {
@@ -48,6 +67,14 @@ function isFiniteInRange(value: unknown, min: number, max: number): value is num
 
 function isNonNegativeFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function toFiniteNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function toStringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
 
 function requireSearchOption(value: unknown): TmapSearchOption {
@@ -69,13 +96,19 @@ interface TmapFeature {
   properties?: Record<string, unknown>;
 }
 
-/** Tmap GeoJSON에서 경로 라인과 거리/시간을 파싱한다. */
-export function parseTmapResponse(payload: unknown): { path: LatLng[]; distanceM: number; timeS: number } {
+/** Tmap GeoJSON에서 경로 라인·거리/시간·단계별 안내(steps)를 파싱한다. */
+export function parseTmapResponse(payload: unknown): {
+  path: LatLng[];
+  distanceM: number;
+  timeS: number;
+  steps: NavStep[];
+} {
   if (typeof payload !== 'object' || payload === null || !Array.isArray((payload as { features?: unknown }).features)) {
     throw new Error('Tmap 응답에 features 배열이 없습니다');
   }
   const features = (payload as { features: TmapFeature[] }).features;
   const path: LatLng[] = [];
+  const steps: NavStep[] = [];
   let distanceM = 0;
   let timeS = 0;
 
@@ -93,6 +126,21 @@ export function parseTmapResponse(payload: unknown): { path: LatLng[]; distanceM
           path.push({ lat: c[1] as number, lng: c[0] as number });
         }
       }
+    } else if (geom?.type === 'Point' && Array.isArray(geom.coordinates)) {
+      const c = geom.coordinates;
+      // GeoJSON: [lng, lat]. 단계별 안내 지점만 NavStep으로 모은다.
+      if (isFiniteInRange(c[1], -90, 90) && isFiniteInRange(c[0], -180, 180)) {
+        steps.push({
+          index: toFiniteNumber(props.index),
+          lat: c[1] as number,
+          lng: c[0] as number,
+          description: toStringOrEmpty(props.description),
+          turnType: toFiniteNumber(props.turnType),
+          distanceM: toFiniteNumber(props.distance),
+          timeS: toFiniteNumber(props.time),
+          pointType: toStringOrEmpty(props.pointType),
+        });
+      }
     }
   }
 
@@ -101,7 +149,8 @@ export function parseTmapResponse(payload: unknown): { path: LatLng[]; distanceM
   }
   // 거리 미제공 시 좌표열로 보정(결정적 폴백).
   if (distanceM === 0) distanceM = Math.round(pathLengthMeters(path));
-  return { path, distanceM, timeS };
+  steps.sort((a, b) => a.index - b.index);
+  return { path, distanceM, timeS, steps };
 }
 
 export function buildTmapRequestBody(

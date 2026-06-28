@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { RouteMap, poiMarkerHtml } from './RouteMap';
+import { RouteMap, poiMarkerHtml, livePositionMarkerHtml } from './RouteMap';
 
 // node/SSR 환경에서는 useEffect가 실행되지 않아 Kakao SDK 초기화가 일어나지 않는다 →
 // RouteMap은 MapMock으로 폴백한다. 이는 키 미설정/로드 실패 시의 실제 런타임 폴백과 동일하며,
@@ -53,5 +53,14 @@ describe('poiMarkerHtml (실지도 마커 구분 아이콘)', () => {
   it('출발/도착은 글리프 없는 점 마커로 둔다', () => {
     expect(poiMarkerHtml('start')).not.toContain('<svg');
     expect(poiMarkerHtml('end')).not.toContain('<svg');
+  });
+});
+
+describe('livePositionMarkerHtml (실시간 위치 마커)', () => {
+  it('파란 맥동 원 + 흰 테두리로 현재 위치를 표시한다', () => {
+    const html = livePositionMarkerHtml();
+    expect(html).toContain('#3b82f6');
+    expect(html).toContain('animation:ping');
+    expect(html).toContain('border:2px solid white');
   });
 });

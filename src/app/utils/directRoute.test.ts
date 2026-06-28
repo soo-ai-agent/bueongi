@@ -24,8 +24,8 @@ const longPath: LatLng[] = [
 const empty: SafetyFacilities = { cctv: [], lamp: [], bell: [], safehouse: [] };
 
 const routes: TmapRoute[] = [
-  { searchOption: '0', path: safePath, distanceM: 1100, timeS: 900 }, // 느리지만 안전(CCTV 많음)
-  { searchOption: '10', path: longPath, distanceM: 3000, timeS: 600 }, // 빠르지만 시설 없음
+  { searchOption: '0', path: safePath, distanceM: 1100, timeS: 900, steps: [] }, // 느리지만 안전(CCTV 많음)
+  { searchOption: '10', path: longPath, distanceM: 3000, timeS: 600, steps: [] }, // 빠르지만 시설 없음
 ];
 
 const facilities: SafetyFacilities = {

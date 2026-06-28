@@ -29,6 +29,10 @@ interface RouteMapProps {
   active?: boolean;
   className?: string;
   zoom?: number;
+  /** Tmap 보행자 경로 상세 좌표열. 있으면 직선 대신 실제 경로를 Polyline으로 그린다. */
+  path?: LatLng[];
+  /** 내비게이션 중 실시간 현재 위치. 별도 마커(파란 점)로 표시된다. */
+  livePosition?: LatLng | null;
 }
 
 const ROUTE_COLORS: Record<NonNullable<RouteMapProps['routeType']>, string> = {
@@ -92,6 +96,14 @@ export function poiMarkerHtml(type: RouteMapPoiType): string {
   );
 }
 
+/** 내비게이션 실시간 위치 마커 HTML(파란 맥동 원 + 흰 테두리). */
+export function livePositionMarkerHtml(): string {
+  return `<div style="position:relative;width:20px;height:20px;transform:translate(-50%,-50%)">
+      <div style="position:absolute;inset:0;background:#3b82f6;border-radius:9999px;opacity:0.3;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite"></div>
+      <div style="position:absolute;inset:3px;background:#3b82f6;border-radius:9999px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
+    </div>`;
+}
+
 // 마커 hover 라벨. 안심집(B-2)은 "지정 상태"일 뿐 영업시간 보장이 아님을 명시한다.
 const POI_TITLE: Partial<Record<RouteMapPoiType, string>> = {
   cctv: 'CCTV',
@@ -116,11 +128,14 @@ export function RouteMap({
   active = false,
   className,
   zoom = 1,
+  path,
+  livePosition = null,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<KakaoMap | null>(null);
   const overlaysRef = useRef<KakaoMapOverlay[]>([]);
   const polylineRef = useRef<KakaoMapOverlay | null>(null);
+  const liveMarkerRef = useRef<KakaoMapOverlay | null>(null);
   const lastBoundsRef = useRef<KakaoMapsLatLngBounds | null>(null);
   const initialCenterRef = useRef<LatLng>(destination ?? origin ?? { lat: 37.5665, lng: 126.978 });
   const [ready, setReady] = useState(false);
@@ -146,9 +161,12 @@ export function RouteMap({
         center: new kakao.maps.LatLng(center.lat, center.lng),
         level: 4,
         draggable: true,
-        scrollwheel: false,
+        scrollwheel: true,
       });
       mapRef.current = map;
+      // +/- 줌 버튼을 오른쪽에 추가
+      const zoomControl = new kakao.maps.ZoomControl();
+      map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
       setReady(true);
       if (typeof ResizeObserver !== 'undefined') {
         observer = new ResizeObserver(() => refreshMap());
@@ -195,13 +213,17 @@ export function RouteMap({
     if (destination && hasLatLng(destination)) addMarker(destination.lat, destination.lng, 'end');
     pois.filter(hasLatLng).forEach((p) => addMarker(p.lat, p.lng, p.type));
 
-    // 경로선: 출발지 → 목적지(둘 다 좌표가 있을 때만).
+    // 경로선: 상세 path가 있으면 Tmap 실경로 좌표열 전체를, 없으면 출발→목적지 직선 폴백.
     if (showRoute && origin && destination && hasLatLng(origin) && hasLatLng(destination)) {
+      const polylinePath =
+        path && path.length >= 2
+          ? path.map((p) => new kakao.maps.LatLng(p.lat, p.lng))
+          : [
+              new kakao.maps.LatLng(origin.lat, origin.lng),
+              new kakao.maps.LatLng(destination.lat, destination.lng),
+            ];
       const polyline = new kakao.maps.Polyline({
-        path: [
-          new kakao.maps.LatLng(origin.lat, origin.lng),
-          new kakao.maps.LatLng(destination.lat, destination.lng),
-        ],
+        path: polylinePath,
         strokeWeight: 5,
         strokeColor: ROUTE_COLORS[routeType],
         strokeOpacity: 0.9,
@@ -215,7 +237,30 @@ export function RouteMap({
       lastBoundsRef.current = bounds;
       map.setBounds(bounds);
     }
-  }, [ready, origin, destination, pois, showRoute, routeType]);
+  }, [ready, origin, destination, pois, showRoute, routeType, path]);
+
+  // 3) 실시간 현재 위치 마커(별도 관리 — bounds 재조정 없이 위치만 갱신).
+  useEffect(() => {
+    const kakao = window.kakao;
+    const map = mapRef.current;
+    if (!ready || !kakao?.maps || !map) return;
+
+    if (liveMarkerRef.current) {
+      liveMarkerRef.current.setMap(null);
+      liveMarkerRef.current = null;
+    }
+    if (livePosition && hasLatLng(livePosition)) {
+      const overlay = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(livePosition.lat, livePosition.lng),
+        content: livePositionMarkerHtml(),
+        yAnchor: 0.5,
+        xAnchor: 0.5,
+        zIndex: 100,
+      });
+      overlay.setMap(map);
+      liveMarkerRef.current = overlay;
+    }
+  }, [ready, livePosition]);
 
   return (
     <div data-testid="route-map" className={cn('relative w-full h-full overflow-hidden', className)}>

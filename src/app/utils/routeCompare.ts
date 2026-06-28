@@ -1,4 +1,5 @@
 import type { Destination } from '../store/appStore';
+import type { NavStep } from './tmap';
 import { createApiError } from './apiError';
 
 export const ROUTE_COMPARE_ENDPOINT = '/api/routes/compare';
@@ -29,6 +30,10 @@ export interface RouteOption {
   desc: string;
   tags: RouteOptionTag[];
   type: RouteType;
+  /** Tmap 보행자 경로 상세 좌표열(WGS84). 지도 Polyline에 직접 사용. */
+  path?: LatLng[];
+  /** Tmap 단계별 길안내 지점. 길안내 화면의 좌/우회전 안내에 사용. */
+  steps?: NavStep[];
 }
 
 export interface RouteCompareClientOptions {

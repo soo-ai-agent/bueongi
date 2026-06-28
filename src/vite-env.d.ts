@@ -25,7 +25,11 @@ interface KakaoMapsLatLngBounds {
 interface KakaoMap {
   relayout(): void;
   setBounds(bounds: KakaoMapsLatLngBounds): void;
+  addControl(control: KakaoMapControl, position: KakaoControlPosition): void;
 }
+
+interface KakaoMapControl {}
+type KakaoControlPosition = string;
 
 interface KakaoMapOverlay {
   setMap(map: KakaoMap | null): void;
@@ -72,6 +76,7 @@ interface KakaoMapsApi {
     content: string;
     yAnchor?: number;
     xAnchor?: number;
+    zIndex?: number;
   }) => KakaoMapOverlay;
   Polyline: new (options: {
     path: KakaoMapsLatLng[];
@@ -80,6 +85,8 @@ interface KakaoMapsApi {
     strokeOpacity: number;
     strokeStyle: string;
   }) => KakaoMapOverlay;
+  ZoomControl: new () => KakaoMapControl;
+  ControlPosition: Record<string, KakaoControlPosition>;
 }
 
 interface KakaoMapsGlobal {

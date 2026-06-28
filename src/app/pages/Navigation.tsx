@@ -2,10 +2,14 @@ import { RouteMap } from '../components/map/RouteMap';
 import { EtaBadge } from '../components/EtaBadge';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
-import { Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon } from 'lucide-react';
+import {
+  Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
+  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage } from '../utils/share';
@@ -14,8 +18,36 @@ import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext
 import { loadNearestPolice } from '../utils/policeSource';
 import { formatDistance, toTelHref, type NearbyPolice } from '../utils/nearestPolice';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage, CurrentLocationError } from '../utils/currentLocation';
+import { haversineMeters } from '../utils/geo';
+import { formatDistanceKo } from '../utils/directRoute';
+import type { NavStep } from '../utils/tmap';
+import type { LatLng } from '../utils/routeCompare';
 
 const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
+
+/** Tmap turnType → 방향 아이콘/레이블. 미정의 코드는 직진으로 폴백. */
+const TURN_GUIDE: Record<number, { Icon: LucideIcon; label: string }> = {
+  11: { Icon: ArrowUp, label: '직진' },
+  12: { Icon: CornerUpLeft, label: '좌회전' },
+  16: { Icon: CornerUpLeft, label: '좌회전' },
+  17: { Icon: CornerUpLeft, label: '좌회전' },
+  13: { Icon: CornerUpRight, label: '우회전' },
+  18: { Icon: CornerUpRight, label: '우회전' },
+  19: { Icon: CornerUpRight, label: '우회전' },
+  14: { Icon: RefreshCw, label: 'U턴' },
+  125: { Icon: MoveUp, label: '육교 이용' },
+  126: { Icon: MoveDown, label: '지하보도 이용' },
+  127: { Icon: MoveUp, label: '계단 이용' },
+  211: { Icon: Navigation2, label: '출발' },
+  212: { Icon: MapPin, label: '도착' },
+};
+
+function turnGuide(turnType: number): { Icon: LucideIcon; label: string } {
+  return TURN_GUIDE[turnType] ?? { Icon: ArrowUp, label: '직진' };
+}
+
+/** 15m 이내 접근 시 다음 단계로 전진하는 판정 반경(m). */
+const STEP_ADVANCE_METERS = 15;
 
 export function NavigationScreen() {
   const navigate = useNavigate();
@@ -24,20 +56,65 @@ export function NavigationScreen() {
   // 목적지 컨텍스트 — RouteDetail/RouteComparison/ConfirmLocation 가드와 동일 기준(단일 헬퍼).
   const { canRequestRoute, hasDestination, destinationName } = getRouteDestinationContext(destination);
   // RouteDetail에서 선택한 경로를 길안내로 이어받는다(없으면 추천 경로로 폴백).
-  const route = resolveRouteWithApiOptions(apiRouteOptions, mockRoutes, location.state?.routeId) ?? mockRoutes[0];
+  const routeOption = resolveRouteWithApiOptions(apiRouteOptions, mockRoutes, location.state?.routeId) ?? mockRoutes[0];
+  // Tmap 키 미설정/백엔드 폴백(MockRoute)일 땐 단계/경로가 없다 → graceful fallback.
+  const steps: NavStep[] = 'steps' in routeOption && routeOption.steps ? routeOption.steps : [];
+  const routePath: LatLng[] | undefined = 'path' in routeOption ? routeOption.path : undefined;
+
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
   const [policeLoading, setPoliceLoading] = useState(false);
   const [nearestPoliceList, setNearestPoliceList] = useState<NearbyPolice[] | null>(null);
-  const [timeLeft, setTimeLeft] = useState(() => parseEtaMinutes(route.time, 24)); // mins
+  const [timeLeft, setTimeLeft] = useState(() => parseEtaMinutes(routeOption.time, 24)); // mins
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [livePosition, setLivePosition] = useState<LatLng | null>(routeOrigin ?? null);
+  const [remainingDistanceM, setRemainingDistanceM] = useState<number | null>(null);
+  const [remainingTimeS, setRemainingTimeS] = useState<number | null>(null);
 
-  // Mock progress
+  // 단계 안내가 없을 때만(폴백) mock 카운트다운으로 ETA를 줄인다.
   useEffect(() => {
+    if (steps.length > 0) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => prev > 0 ? prev - 1 : 0);
     }, 60000);
     return () => clearInterval(timer);
-  }, []);
+  }, [steps.length]);
+
+  // 실시간 GPS 추적: 현재 위치 갱신 + 다음 단계 근접 시 전진 + 남은 거리/시간 합산.
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLivePosition(current);
+        if (steps.length > 0 && currentStepIdx < steps.length - 1) {
+          const nextStep = steps[currentStepIdx + 1];
+          const dist = haversineMeters(current, { lat: nextStep.lat, lng: nextStep.lng });
+          if (dist < STEP_ADVANCE_METERS) {
+            setCurrentStepIdx(prev => Math.min(prev + 1, steps.length - 1));
+          }
+        }
+        // 현재 단계 이후 남은 거리/시간을 합산(steps[i]의 distance/time은 i→i+1 구간 기준).
+        const remaining = steps.slice(currentStepIdx).reduce(
+          (acc, s) => ({ dist: acc.dist + s.distanceM, time: acc.time + s.timeS }),
+          { dist: 0, time: 0 },
+        );
+        setRemainingDistanceM(remaining.dist);
+        setRemainingTimeS(remaining.time);
+      },
+      undefined,
+      { enableHighAccuracy: true, maximumAge: 3000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [steps, currentStepIdx]);
+
+  const currentStep: NavStep | null = steps[currentStepIdx] ?? null;
+  const nextStep: NavStep | null = steps[currentStepIdx + 1] ?? null;
+  const guide = currentStep ? turnGuide(currentStep.turnType) : null;
+  const GuideIcon = guide?.Icon ?? Navigation2;
+
+  const distanceText = remainingDistanceM != null ? formatDistanceKo(remainingDistanceM) : routeOption.dist;
+  const minutesLeft = remainingTimeS != null ? Math.max(1, Math.round(remainingTimeS / 60)) : timeLeft;
 
   // 귀가 완료를 보호자에게 실제로 알린다(자동 전송 메커니즘 부재 → 공유/복사로 정직 처리).
   // 이 화면에는 실시간 위치 토큰이 없으므로 링크는 붙이지 않는다(토큰 없는 /share는 발신자 본인
@@ -141,16 +218,41 @@ export function NavigationScreen() {
         </div>
         {/* 예상 도착 시간(ETA) 배지 */}
         <div className="flex justify-center mt-3">
-          <EtaBadge minutes={timeLeft} />
+          <EtaBadge minutes={minutesLeft} />
+        </div>
+
+        {/* 현재 단계 안내 카드 — 큰 방향 아이콘 + 안내 문구. 단계 없으면 기본 메시지. */}
+        <div className="mt-3 max-w-[340px] mx-auto pointer-events-auto">
+          <div className="bg-slate-900/80 backdrop-blur-md text-slate-50 rounded-[24px] shadow-lg border border-slate-700 px-5 py-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+              <GuideIcon className="w-7 h-7 text-emerald-300" />
+            </div>
+            <div className="min-w-0">
+              {currentStep ? (
+                <>
+                  <p className="text-xl font-bold leading-tight">{guide?.label}</p>
+                  <p className="text-slate-300 text-sm mt-0.5 truncate">{currentStep.description || `${guide?.label} 안내`}</p>
+                </>
+              ) : (
+                <p className="text-base font-semibold leading-tight">경로를 따라 이동해 주세요</p>
+              )}
+            </div>
+          </div>
         </div>
       </motion.div>
 
       <div className="flex-1 w-full h-full relative">
-        {/* 동행 중 지도 — 실좌표 경로선 + 현재 위치(active dot은 MapMock 폴백 시 노출) */}
-        <RouteMap showRoute active origin={routeOrigin} destination={destination} routeType={normalizeRouteType(route.type)} pois={[
-          { type: 'cctv', x: 40, y: 65 },
-          { type: 'bell', x: 45, y: 60 }
-        ]} />
+        {/* 동행 중 지도 — 실좌표 경로선 + 실시간 현재 위치 마커 */}
+        <RouteMap
+          showRoute
+          active
+          origin={routeOrigin}
+          destination={destination}
+          routeType={normalizeRouteType(routeOption.type)}
+          livePosition={livePosition}
+          path={routePath}
+          pois={[]}
+        />
       </div>
 
       {/* Floating Emergency Button */}
@@ -165,15 +267,20 @@ export function NavigationScreen() {
 
       {/* Bottom Status Bar */}
       <div className="absolute bottom-0 inset-x-0 bg-slate-700 rounded-t-[32px] p-6 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] border-t border-slate-600 z-20">
-        <div className="flex justify-between items-end mb-6">
+        <div className="flex justify-between items-end mb-4">
           <div>
-            <p className="text-slate-300 text-sm mb-1 font-medium">{destinationName}로 가는 중 · {route.name}</p>
+            <p className="text-slate-300 text-sm mb-1 font-medium">{destinationName}로 가는 중 · {routeOption.name}</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-slate-50">{timeLeft}<span className="text-2xl text-slate-400">분</span></span>
-              <span className="text-slate-300 text-lg font-medium">남음 ({route.dist})</span>
+              <span className="text-4xl font-bold text-slate-50">{minutesLeft}<span className="text-2xl text-slate-400">분</span></span>
+              <span className="text-slate-300 text-lg font-medium">남음 ({distanceText})</span>
             </div>
           </div>
         </div>
+
+        {/* 다음 단계 미리보기 */}
+        <p className="text-slate-400 text-sm mb-6 font-medium">
+          다음: {nextStep ? (nextStep.description || turnGuide(nextStep.turnType).label) : '목적지 도착'}
+        </p>
 
         <div className="flex gap-3">
           <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>

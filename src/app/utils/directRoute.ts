@@ -95,6 +95,8 @@ export function toRouteOptions(scoredRoutes: ScoredRoute[]): RouteOption[] {
       desc: `안전 점수 ${scored.score.score}점 · CCTV ${scored.score.breakdown.cctvDensity}/km`,
       tags: buildTags(scored),
       type: scored.type,
+      path: scored.route.path,
+      steps: scored.route.steps,
     }));
 }
 
