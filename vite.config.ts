@@ -18,9 +18,24 @@ function figmaAssetResolver() {
   }
 }
 
-export default defineConfig({
+// 테스트 모드에서 .env.local 의 실제 키(VITE_TMAP_APP_KEY 등)가 import.meta.env 로 인라인되어
+// "키 없음 → 백엔드 폴백" 분기 테스트를 깨뜨리는 것을 막는다. 인라인과 같은 레이어(define)에서
+// 클라이언트 키를 빈 문자열로 덮어 테스트 러너를 hermetic 하게 만든다(각 테스트가 stub 으로 주입).
+const TEST_ENV_KEYS = [
+  'VITE_KAKAO_JS_KEY',
+  'VITE_TMAP_APP_KEY',
+  'VITE_CDN_BASE_URL',
+  'VITE_SEOUL_OPENAPI_KEY',
+  'VITE_SHARE_API_BASE_URL',
+]
+const testEnvDefine = Object.fromEntries(
+  TEST_ENV_KEYS.map((k) => [`import.meta.env.${k}`, '""']),
+)
+
+export default defineConfig(({ mode }) => ({
   // 클라이언트 번들에 노출될 수 있는 env는 'VITE_' 접두만(명시 고정). 가드와 짝을 이룬다.
   envPrefix: 'VITE_',
+  ...(mode === 'test' ? { define: testEnvDefine } : {}),
   plugins: [
     clientEnvBuildGuard(),
     figmaAssetResolver(),
@@ -58,4 +73,4 @@ export default defineConfig({
   test: {
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
-})
+}))

@@ -4,7 +4,7 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import {
   Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
-  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2,
+  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -25,21 +25,33 @@ import type { LatLng } from '../utils/routeCompare';
 
 const sanitizePhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
-/** Tmap turnType → 방향 아이콘/레이블. 미정의 코드는 직진으로 폴백. */
+/**
+ * Tmap turnType → 방향 아이콘/레이블. 미정의 코드는 직진으로 폴백.
+ * 코드 출처: Tmap 보행자 경로 API 실응답(11~19 회전, 12x 시설 통과, 200/201 출발·도착, 21x 횡단보도).
+ */
 const TURN_GUIDE: Record<number, { Icon: LucideIcon; label: string }> = {
   11: { Icon: ArrowUp, label: '직진' },
   12: { Icon: CornerUpLeft, label: '좌회전' },
-  16: { Icon: CornerUpLeft, label: '좌회전' },
-  17: { Icon: CornerUpLeft, label: '좌회전' },
+  16: { Icon: CornerUpLeft, label: '8시 방향 좌회전' },
+  17: { Icon: CornerUpLeft, label: '10시 방향 좌회전' },
   13: { Icon: CornerUpRight, label: '우회전' },
-  18: { Icon: CornerUpRight, label: '우회전' },
-  19: { Icon: CornerUpRight, label: '우회전' },
+  18: { Icon: CornerUpRight, label: '2시 방향 우회전' },
+  19: { Icon: CornerUpRight, label: '4시 방향 우회전' },
   14: { Icon: RefreshCw, label: 'U턴' },
   125: { Icon: MoveUp, label: '육교 이용' },
   126: { Icon: MoveDown, label: '지하보도 이용' },
   127: { Icon: MoveUp, label: '계단 이용' },
-  211: { Icon: Navigation2, label: '출발' },
-  212: { Icon: MapPin, label: '도착' },
+  // 출발/도착(Tmap: 200=출발지, 201=목적지)
+  200: { Icon: Navigation2, label: '출발' },
+  201: { Icon: MapPin, label: '도착' },
+  // 횡단보도(Tmap: 211 정면 / 212~217 방향별)
+  211: { Icon: Footprints, label: '횡단보도 건너기' },
+  212: { Icon: Footprints, label: '좌측 횡단보도 건너기' },
+  213: { Icon: Footprints, label: '우측 횡단보도 건너기' },
+  214: { Icon: Footprints, label: '8시 방향 횡단보도 건너기' },
+  215: { Icon: Footprints, label: '10시 방향 횡단보도 건너기' },
+  216: { Icon: Footprints, label: '2시 방향 횡단보도 건너기' },
+  217: { Icon: Footprints, label: '4시 방향 횡단보도 건너기' },
 };
 
 function turnGuide(turnType: number): { Icon: LucideIcon; label: string } {
