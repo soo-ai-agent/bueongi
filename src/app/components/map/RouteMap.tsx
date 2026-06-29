@@ -113,6 +113,28 @@ const POI_TITLE: Partial<Record<RouteMapPoiType, string>> = {
   safehouse: '여성안심지킴이집(지정 상태·영업시간 정보 없음)',
 };
 
+/** 마커 클릭 정보 카드용 시설 유형 라벨(간결). start/end는 클릭 정보 대상이 아니다. */
+const POI_LABEL: Partial<Record<RouteMapPoiType, string>> = {
+  cctv: 'CCTV',
+  bell: '안전 비상벨',
+  store: '편의점',
+  police: '지구대·파출소',
+  safehouse: '여성안심지킴이집',
+};
+
+/** 클릭한 마커의 정보(정보 카드 표시용). */
+export interface SelectedPoi {
+  type: RouteMapPoiType;
+  name?: string;
+  lat: number;
+  lng: number;
+}
+
+/** 시설 마커(클릭 시 정보 제공 대상)인지 — 출발/도착은 제외. */
+function isFacilityType(type: RouteMapPoiType): boolean {
+  return type !== 'start' && type !== 'end';
+}
+
 /**
  * 안심 귀가 경로 지도.
  * - 키(VITE_KAKAO_JS_KEY)가 있고 SDK 로드에 성공하면 실제 Kakao 지도에 출발/목적지 마커,
@@ -139,6 +161,8 @@ export function RouteMap({
   const lastBoundsRef = useRef<KakaoMapsLatLngBounds | null>(null);
   const initialCenterRef = useRef<LatLng>(destination ?? origin ?? { lat: 37.5665, lng: 126.978 });
   const [ready, setReady] = useState(false);
+  // 사용자가 누른 시설 마커의 정보(클릭 정보 카드). 마커가 갱신되면 닫는다.
+  const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
 
   // 컨테이너 크기가 늦게 확정될 때 타일이 깨진 채 남는 것을 막는 relayout + bounds 재적용.
   const refreshMap = useCallback(() => {
@@ -192,16 +216,30 @@ export function RouteMap({
       polylineRef.current = null;
     }
 
+    // pois가 바뀌면(경로 전환 등) 이전 선택 정보 카드는 닫는다(stale 방지).
+    setSelectedPoi(null);
+
     const bounds = new kakao.maps.LatLngBounds();
     let hasPoint = false;
 
-    const addMarker = (lat: number, lng: number, type: RouteMapPoiType) => {
+    const addMarker = (lat: number, lng: number, type: RouteMapPoiType, name?: string) => {
       const position = new kakao.maps.LatLng(lat, lng);
+      // 시설 마커는 클릭 시 정보 카드를 띄운다(출발/도착은 정보 대상 아님). 클릭 가능하게 DOM 엘리먼트로 만든다.
+      const facility = isFacilityType(type);
+      let content: string | HTMLElement = poiMarkerHtml(type);
+      if (facility && typeof document !== 'undefined') {
+        const el = document.createElement('div');
+        el.innerHTML = poiMarkerHtml(type);
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => setSelectedPoi({ type, name, lat, lng }));
+        content = el;
+      }
       const overlay = new kakao.maps.CustomOverlay({
         position,
-        content: poiMarkerHtml(type),
+        content,
         yAnchor: 0.5,
         xAnchor: 0.5,
+        clickable: facility,
       });
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
@@ -211,7 +249,7 @@ export function RouteMap({
 
     if (origin && hasLatLng(origin)) addMarker(origin.lat, origin.lng, 'start');
     if (destination && hasLatLng(destination)) addMarker(destination.lat, destination.lng, 'end');
-    pois.filter(hasLatLng).forEach((p) => addMarker(p.lat, p.lng, p.type));
+    pois.filter(hasLatLng).forEach((p) => addMarker(p.lat, p.lng, p.type, p.name));
 
     // 경로선: 상세 path가 있으면 Tmap 실경로 좌표열 전체를, 없으면 출발→목적지 직선 폴백.
     if (showRoute && origin && destination && hasLatLng(origin) && hasLatLng(destination)) {
@@ -278,6 +316,42 @@ export function RouteMap({
           active={active}
           zoom={zoom}
         />
+      )}
+
+      {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/좌표를 보여준다(지도 위 오버레이). */}
+      {ready && selectedPoi && (
+        <div data-testid="poi-info-card" className="absolute left-3 right-3 bottom-3 z-30">
+          <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-2xl shadow-xl px-4 py-3.5 flex items-start gap-3">
+            <span
+              className="mt-1 w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: POI_BORDER[selectedPoi.type] }}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-bold tracking-wide" style={{ color: POI_BORDER[selectedPoi.type] }}>
+                {POI_LABEL[selectedPoi.type] ?? selectedPoi.type}
+              </div>
+              <div className="text-slate-50 font-bold text-[15px] truncate mt-0.5">
+                {selectedPoi.name?.trim() || '관리기관 정보 없음'}
+              </div>
+              <div className="text-slate-400 text-xs mt-1">
+                위도 {selectedPoi.lat.toFixed(5)} · 경도 {selectedPoi.lng.toFixed(5)}
+              </div>
+              {selectedPoi.type === 'safehouse' && (
+                <div className="text-slate-500 text-[11px] mt-1 leading-relaxed">
+                  지정된 거점일 뿐 영업시간 정보가 없어요. 방문 전 운영 여부를 확인해 주세요.
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedPoi(null)}
+              aria-label="정보 닫기"
+              className="shrink-0 w-7 h-7 -mt-0.5 -mr-1 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

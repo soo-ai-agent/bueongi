@@ -91,10 +91,11 @@ interface KakaoMapsApi {
   LatLngBounds: new () => KakaoMapsLatLngBounds;
   CustomOverlay: new (options: {
     position: KakaoMapsLatLng;
-    content: string;
+    content: string | HTMLElement;
     yAnchor?: number;
     xAnchor?: number;
     zIndex?: number;
+    clickable?: boolean;
   }) => KakaoMapOverlay;
   Polyline: new (options: {
     path: KakaoMapsLatLng[];
