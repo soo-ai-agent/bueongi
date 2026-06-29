@@ -106,13 +106,17 @@ export function NavigationScreen() {
             setCurrentStepIdx(prev => Math.min(prev + 1, steps.length - 1));
           }
         }
-        // 현재 단계 이후 남은 거리/시간을 합산(steps[i]의 distance/time은 i→i+1 구간 기준).
-        const remaining = steps.slice(currentStepIdx).reduce(
-          (acc, s) => ({ dist: acc.dist + s.distanceM, time: acc.time + s.timeS }),
-          { dist: 0, time: 0 },
-        );
-        setRemainingDistanceM(remaining.dist);
-        setRemainingTimeS(remaining.time);
+        // 단계 안내가 있을 때만 현재 단계 이후 남은 거리/시간을 합산한다(steps[i]의 distance/time은
+        // i→i+1 구간 기준). 단계가 없는 폴백 경로에서는 잔여값을 null로 두어 경로 자체의 시간/거리
+        // (route.time/route.dist)를 표시한다 — 0m/1분 오표시 방지.
+        if (steps.length > 0) {
+          const remaining = steps.slice(currentStepIdx).reduce(
+            (acc, s) => ({ dist: acc.dist + s.distanceM, time: acc.time + s.timeS }),
+            { dist: 0, time: 0 },
+          );
+          setRemainingDistanceM(remaining.dist);
+          setRemainingTimeS(remaining.time);
+        }
       },
       undefined,
       { enableHighAccuracy: true, maximumAge: 3000 },

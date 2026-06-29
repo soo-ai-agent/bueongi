@@ -25,6 +25,15 @@ test.describe('안심귀가 풀플로우 (mock)', () => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 37.501, longitude: 127.039 });
 
+    // 이 테스트는 의도적으로 "maps 키 없는 mock 상태"(MapMock + 결정론적 흐름)를 검증한다.
+    // .env.local 에 실 Kakao 키가 있어 dev 서버가 실 지도 SDK/장소검색을 로드하므로, dapi.kakao.com
+    // (지도 SDK + 장소검색)을 차단해 MapMock 폴백과 결정론적 장소검색(백엔드 seed/클라이언트 카탈로그)을 복원한다.
+    await page.route(/dapi\.kakao\.com/, (route) => route.abort());
+    // 안심 라우팅(safe-compare)을 빈 배열로 mock → 프론트 내장 mockRoutes(추천/큰길/빠른 3개)로 결정론적 렌더.
+    await page.route('**/api/routes/safe-compare', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+
     // 1) Onboarding — 새 컨텍스트(localStorage 비어있음)면 온보딩 노출
     await page.goto('/');
     await expect(page.getByTestId('onboarding-next')).toBeVisible();

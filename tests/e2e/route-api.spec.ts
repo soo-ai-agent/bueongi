@@ -47,7 +47,7 @@ test.describe('route API UI integration', () => {
   test('RouteComparison shows backend route options after origin confirmation', async ({ page }) => {
     const facilityRouteTypes: string[] = [];
 
-    await page.route('**/api/routes/compare', async (route) => {
+    await page.route('**/api/routes/safe-compare', async (route) => {
       const body = route.request().postDataJSON();
       expect(body).toMatchObject({
         origin: { lat: 37.501, lng: 127.039 },
@@ -115,7 +115,7 @@ test.describe('route API UI integration', () => {
   });
 
   test('Navigation keeps the selected backend route from comparison detail', async ({ page }) => {
-    await page.route('**/api/routes/compare', async (route) => {
+    await page.route('**/api/routes/safe-compare', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -165,12 +165,13 @@ test.describe('route API UI integration', () => {
 
     await expect(page).toHaveURL(/\/navigate$/);
     await expect(page.getByText('서울시청로 가는 중 · 서버 큰길 위주')).toBeVisible();
-    await expect(page.getByText('25분')).toBeVisible();
+    // 하단 잔여시간(굵은 숫자) — ETA 배지 "도착까지 약 25분"과 구분되도록 정확일치.
+    await expect(page.getByText('25분', { exact: true })).toBeVisible();
     await expect(page.getByText('남음 (1.3km)')).toBeVisible();
   });
 
   test('RouteComparison maps standard API errors and keeps fallback routes visible', async ({ page }) => {
-    await page.route('**/api/routes/compare', async (route) => {
+    await page.route('**/api/routes/safe-compare', async (route) => {
       await route.fulfill({
         status: 422,
         contentType: 'application/problem+json',
