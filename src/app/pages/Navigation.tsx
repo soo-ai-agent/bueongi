@@ -1,4 +1,4 @@
-import { RouteMap } from '../components/map/RouteMap';
+import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
 import { EtaBadge } from '../components/EtaBadge';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
@@ -72,6 +72,12 @@ export function NavigationScreen() {
   // Tmap 키 미설정/백엔드 폴백(MockRoute)일 땐 단계/경로가 없다 → graceful fallback.
   const steps: NavStep[] = 'steps' in routeOption && routeOption.steps ? routeOption.steps : [];
   const routePath: LatLng[] | undefined = 'path' in routeOption ? routeOption.path : undefined;
+  // 백엔드 안심 라우팅이 준 경로변 거점 마커(CCTV/안심집/비상벨). 길안내 지도에 그대로 표시한다.
+  // 출발/도착은 origin/destination prop 으로 이미 그려지므로 시설 마커만 남긴다(중복 핀 방지).
+  const facilityMarkers: RouteMapPoi[] =
+    'markers' in routeOption && routeOption.markers
+      ? routeOption.markers.filter((m) => m.type !== 'start' && m.type !== 'end')
+      : [];
 
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
@@ -114,8 +120,10 @@ export function NavigationScreen() {
             (acc, s) => ({ dist: acc.dist + s.distanceM, time: acc.time + s.timeS }),
             { dist: 0, time: 0 },
           );
-          setRemainingDistanceM(remaining.dist);
-          setRemainingTimeS(remaining.time);
+          // per-step 거리/시간이 0(백엔드가 단계별 값 미제공)이면 잔여값을 두지 않고 경로 총합
+          // (route.time/route.dist)으로 폴백한다 — "0m/1분" 오표시 방지.
+          if (remaining.dist > 0) setRemainingDistanceM(remaining.dist);
+          if (remaining.time > 0) setRemainingTimeS(remaining.time);
         }
       },
       undefined,
@@ -267,7 +275,7 @@ export function NavigationScreen() {
           routeType={normalizeRouteType(routeOption.type)}
           livePosition={livePosition}
           path={routePath}
-          pois={[]}
+          pois={facilityMarkers}
         />
       </div>
 
