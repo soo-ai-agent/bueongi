@@ -15,6 +15,10 @@ export interface RouteMapPoi {
   lat?: number;
   lng?: number;
   name?: string;
+  /** CCTV 마커 표시용 설치목적구분(용도). 예: '생활방범'. */
+  purpose?: string;
+  /** CCTV 마커 표시용 카메라 대수. */
+  cameraCount?: number;
 }
 
 interface RouteMapProps {
@@ -128,6 +132,10 @@ export interface SelectedPoi {
   name?: string;
   lat: number;
   lng: number;
+  /** CCTV 용도(설치목적구분). 예: '생활방범'. */
+  purpose?: string;
+  /** CCTV 카메라 대수. */
+  cameraCount?: number;
 }
 
 /** 시설 마커(클릭 시 정보 제공 대상)인지 — 출발/도착은 제외. */
@@ -222,7 +230,12 @@ export function RouteMap({
     const bounds = new kakao.maps.LatLngBounds();
     let hasPoint = false;
 
-    const addMarker = (lat: number, lng: number, type: RouteMapPoiType, name?: string) => {
+    const addMarker = (
+      lat: number,
+      lng: number,
+      type: RouteMapPoiType,
+      info?: { name?: string; purpose?: string; cameraCount?: number },
+    ) => {
       const position = new kakao.maps.LatLng(lat, lng);
       // 시설 마커는 클릭 시 정보 카드를 띄운다(출발/도착은 정보 대상 아님). 클릭 가능하게 DOM 엘리먼트로 만든다.
       const facility = isFacilityType(type);
@@ -231,7 +244,9 @@ export function RouteMap({
         const el = document.createElement('div');
         el.innerHTML = poiMarkerHtml(type);
         el.style.cursor = 'pointer';
-        el.addEventListener('click', () => setSelectedPoi({ type, name, lat, lng }));
+        el.addEventListener('click', () =>
+          setSelectedPoi({ type, name: info?.name, lat, lng, purpose: info?.purpose, cameraCount: info?.cameraCount }),
+        );
         content = el;
       }
       const overlay = new kakao.maps.CustomOverlay({
@@ -249,7 +264,9 @@ export function RouteMap({
 
     if (origin && hasLatLng(origin)) addMarker(origin.lat, origin.lng, 'start');
     if (destination && hasLatLng(destination)) addMarker(destination.lat, destination.lng, 'end');
-    pois.filter(hasLatLng).forEach((p) => addMarker(p.lat, p.lng, p.type, p.name));
+    pois
+      .filter(hasLatLng)
+      .forEach((p) => addMarker(p.lat, p.lng, p.type, { name: p.name, purpose: p.purpose, cameraCount: p.cameraCount }));
 
     // 경로선: 상세 path가 있으면 Tmap 실경로 좌표열 전체를, 없으면 출발→목적지 직선 폴백.
     if (showRoute && origin && destination && hasLatLng(origin) && hasLatLng(destination)) {
@@ -318,7 +335,7 @@ export function RouteMap({
         />
       )}
 
-      {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/좌표를 보여준다(지도 위 오버레이). */}
+      {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/용도·카메라대수/좌표를 보여준다(지도 위 오버레이). */}
       {ready && selectedPoi && (
         <div data-testid="poi-info-card" className="absolute left-3 right-3 bottom-3 z-30">
           <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-2xl shadow-xl px-4 py-3.5 flex items-start gap-3">
@@ -333,6 +350,23 @@ export function RouteMap({
               <div className="text-slate-50 font-bold text-[15px] truncate mt-0.5">
                 {selectedPoi.name?.trim() || '관리기관 정보 없음'}
               </div>
+              {(selectedPoi.purpose || selectedPoi.cameraCount != null) && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {selectedPoi.purpose && (
+                    <span
+                      className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                      style={{ color: POI_BORDER[selectedPoi.type], backgroundColor: `${POI_BORDER[selectedPoi.type]}22` }}
+                    >
+                      용도 · {selectedPoi.purpose}
+                    </span>
+                  )}
+                  {selectedPoi.cameraCount != null && (
+                    <span className="inline-flex items-center rounded-md bg-slate-700/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100">
+                      카메라 {selectedPoi.cameraCount}대
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="text-slate-400 text-xs mt-1">
                 위도 {selectedPoi.lat.toFixed(5)} · 경도 {selectedPoi.lng.toFixed(5)}
               </div>

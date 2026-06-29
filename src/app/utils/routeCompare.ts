@@ -164,6 +164,8 @@ function toRouteMapPoi(value: unknown): RouteMapPoi | null {
   if (typeof poi.lat === 'number') marker.lat = poi.lat;
   if (typeof poi.lng === 'number') marker.lng = poi.lng;
   if (typeof poi.name === 'string') marker.name = poi.name;
+  if (typeof poi.purpose === 'string') marker.purpose = poi.purpose;
+  if (typeof poi.cameraCount === 'number') marker.cameraCount = poi.cameraCount;
   return marker;
 }
 

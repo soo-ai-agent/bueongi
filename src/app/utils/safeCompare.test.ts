@@ -52,7 +52,7 @@ describe('fetchSafeCompare', () => {
             score: 88,
             markers: [
               { type: 'start', x: 12, y: 88, lat: 37.5, lng: 127.0 },
-              { type: 'cctv', x: 40, y: 50, lat: 37.499, lng: 127.01, name: '구청앞 CCTV' },
+              { type: 'cctv', x: 40, y: 50, lat: 37.499, lng: 127.01, name: '구청앞 CCTV', purpose: '생활방범', cameraCount: 3 },
               { type: 'end', x: 88, y: 12, lat: 37.4979, lng: 127.0276 },
             ],
           },
@@ -71,7 +71,16 @@ describe('fetchSafeCompare', () => {
     ]);
     expect(routes[0].steps?.[0]).toMatchObject({ index: 0, turnType: 211, pointType: 'SP' });
     expect(routes[0].markers).toHaveLength(3);
-    expect(routes[0].markers?.[1]).toEqual({ type: 'cctv', x: 40, y: 50, lat: 37.499, lng: 127.01, name: '구청앞 CCTV' });
+    expect(routes[0].markers?.[1]).toEqual({
+      type: 'cctv',
+      x: 40,
+      y: 50,
+      lat: 37.499,
+      lng: 127.01,
+      name: '구청앞 CCTV',
+      purpose: '생활방범',
+      cameraCount: 3,
+    });
 
     expect(fetchImpl).toHaveBeenCalledWith(SAFE_COMPARE_ENDPOINT, {
       method: 'POST',
