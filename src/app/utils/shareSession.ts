@@ -29,7 +29,10 @@ export class ShareExpiredError extends Error {
 }
 
 export interface CreateShareResponse {
+  /** 공유 URL에 담기는 읽기 전용 토큰(보호자가 위치를 조회). */
   token: string;
+  /** 위치 쓰기/종료에 필요한 비밀(앱만 보관, 공유 URL엔 미포함). 매 전송/종료에 본문으로 보낸다. */
+  ownerSecret: string;
   shareUrl: string;
   expiresAt: string;
 }
@@ -50,6 +53,8 @@ export interface ShareClientOptions {
   baseUrl?: string;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
+  /** 쓰기/종료 전용 비밀(앱만 보유). updateShareLocation/endShare 가 본문 owner_secret 으로 보낸다. 조회(read)에선 무시. */
+  ownerSecret?: string;
 }
 
 function isFiniteInRange(value: unknown, min: number, max: number): value is number {
@@ -98,12 +103,18 @@ export async function createShare(
   if (!response.ok) throw new Error(`공유 생성 실패: ${response.status}`);
   const payload = (await response.json()) as Record<string, unknown>;
   const token = payload.token;
+  const ownerSecret = payload.owner_secret ?? payload.ownerSecret;
   const shareUrl = payload.share_url ?? payload.shareUrl;
   const expiresAt = payload.expires_at ?? payload.expiresAt;
-  if (typeof token !== 'string' || typeof shareUrl !== 'string' || typeof expiresAt !== 'string') {
-    throw new Error('공유 생성 응답에 token/share_url/expires_at이 없습니다');
+  if (
+    typeof token !== 'string' ||
+    typeof ownerSecret !== 'string' ||
+    typeof shareUrl !== 'string' ||
+    typeof expiresAt !== 'string'
+  ) {
+    throw new Error('공유 생성 응답에 token/owner_secret/share_url/expires_at이 없습니다');
   }
-  return { token, shareUrl, expiresAt };
+  return { token, ownerSecret, shareUrl, expiresAt };
 }
 
 /** POST /share/{token}/location — 사용자 현재 위치 갱신(공유 중 5초마다). */
@@ -121,7 +132,12 @@ export async function updateShareLocation(
   const response = await fetcher(`${base}/share/${encodeURIComponent(shareToken)}/location`, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lat: location.lat, lng: location.lng }),
+    // owner_secret(쓰기 비밀)을 함께 보낸다 — 공유 URL(읽기 토큰)만 아는 사람은 위치를 쓸 수 없다.
+    body: JSON.stringify({
+      lat: location.lat,
+      lng: location.lng,
+      ...(options.ownerSecret ? { owner_secret: options.ownerSecret } : {}),
+    }),
     signal: options.signal,
   });
   // 만료/없는 토큰은 404로 올 수 있다 — 호출부가 공유 중단으로 처리하도록 표면화.
@@ -170,7 +186,9 @@ export async function endShare(token: string, options: ShareClientOptions = {}):
   const fetcher = options.fetchImpl ?? fetch;
   const response = await fetcher(`${base}/share/${encodeURIComponent(shareToken)}/end`, {
     method: 'POST',
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    // owner_secret(쓰기 비밀)을 보내야 종료된다 — 공유 URL만 아는 사람의 임의 종료를 막는다.
+    body: JSON.stringify(options.ownerSecret ? { owner_secret: options.ownerSecret } : {}),
     signal: options.signal,
   });
   if (!response.ok && response.status !== 404) {

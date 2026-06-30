@@ -10,10 +10,10 @@ describe('createShare', () => {
 
   it('expires_in_hours로 POST 하고 snake_case 응답을 camelCase로 변환', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ token: 'tok', share_url: 'https://share.test/share/tok', expires_at: '2026-06-19T10:00:00Z' }), { status: 200 }),
+      new Response(JSON.stringify({ token: 'tok', owner_secret: 'sek', share_url: 'https://share.test/share/tok', expires_at: '2026-06-19T10:00:00Z' }), { status: 200 }),
     );
     const res = await createShare(2, { baseUrl: BASE, fetchImpl });
-    expect(res).toEqual({ token: 'tok', shareUrl: 'https://share.test/share/tok', expiresAt: '2026-06-19T10:00:00Z' });
+    expect(res).toEqual({ token: 'tok', ownerSecret: 'sek', shareUrl: 'https://share.test/share/tok', expiresAt: '2026-06-19T10:00:00Z' });
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(`${BASE}/share/create`);
     expect(JSON.parse((init?.body as string) ?? '{}')).toEqual({ expires_in_hours: 2 });
@@ -31,6 +31,13 @@ describe('updateShareLocation', () => {
     const res = await updateShareLocation('tok', { lat: 37.5, lng: 127 }, { baseUrl: BASE, fetchImpl });
     expect(res.updatedAt).toBe('2026-06-19T09:00:00Z');
     expect(fetchImpl.mock.calls[0][0]).toBe(`${BASE}/share/tok/location`);
+  });
+
+  it('owner_secret(쓰기 비밀)을 본문에 함께 전송', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ updated_at: '2026-06-19T09:00:00Z' }), { status: 200 }));
+    await updateShareLocation('tok', { lat: 37.5, lng: 127 }, { baseUrl: BASE, fetchImpl, ownerSecret: 'sek' });
+    const body = JSON.parse((fetchImpl.mock.calls[0][1]?.body as string) ?? '{}');
+    expect(body).toEqual({ lat: 37.5, lng: 127, owner_secret: 'sek' });
   });
 
   it('잘못된 좌표는 호출 전 차단', async () => {

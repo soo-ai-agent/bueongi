@@ -112,18 +112,24 @@ export function removeContactFromState(
   return { next, persisted: persistAppState(STORAGE_KEY, next) };
 }
 
+/** 진행 중인 위치 공유의 식별/제어 정보(세션 전용). token=읽기(공유 URL), ownerSecret=쓰기·종료 비밀. */
+export interface ActiveShare {
+  token: string;
+  ownerSecret: string;
+}
+
 interface AppStore extends AppState {
   /** 이번 세션에서 명시적으로 확인한 출발지(현재 위치). 개인정보라 localStorage에 영속하지 않는다. */
   routeOrigin: LatLng | null;
   /** 이번 세션에서 백엔드 compare API로 받은 경로 후보. 새로고침 시 mock route 폴백을 유지한다. */
   apiRouteOptions: RouteOption[];
   /**
-   * 진행 중인 위치 공유의 토큰(없으면 null). 공유 화면(/share)에서 발급해 저장하고,
-   * 귀가완료(도착) 시 길안내 화면이 이 토큰으로 공유를 종료한다. 개인정보라 영속하지 않는다(세션 전용).
+   * 진행 중인 위치 공유(없으면 null). 공유 화면(/share)에서 발급한 읽기 토큰 + 쓰기 비밀(ownerSecret)을 담는다.
+   * 귀가완료(도착) 시 길안내 화면이 이 비밀로 공유를 종료한다. 개인정보라 영속하지 않는다(세션 전용).
    */
-  activeShareToken: string | null;
-  /** 진행 중 공유 토큰 설정/해제. 공유 시작 시 토큰, 종료 시 null. */
-  setActiveShareToken: (token: string | null) => void;
+  activeShare: ActiveShare | null;
+  /** 진행 중 공유 설정/해제. 공유 시작 시 {token, ownerSecret}, 종료 시 null. */
+  setActiveShare: (share: ActiveShare | null) => void;
   /** 목적지 선택 + 최근 목적지에 반영 */
   selectDestination: (dest: Destination) => void;
   /** 현재 위치 기반 경로 요청 origin 설정(비영속) */
@@ -146,7 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
   const [routeOrigin, setRouteOriginState] = useState<LatLng | null>(null);
   const [apiRouteOptions, setApiRouteOptionsState] = useState<RouteOption[]>([]);
-  const [activeShareToken, setActiveShareToken] = useState<string | null>(null);
+  const [activeShare, setActiveShare] = useState<ActiveShare | null>(null);
 
   // 전체 상태 영속(폴백). 안전 데이터 setter는 아래에서 동기 persist 결과를 직접 반환한다.
   useEffect(() => {
@@ -208,8 +214,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ...state,
     routeOrigin,
     apiRouteOptions,
-    activeShareToken,
-    setActiveShareToken,
+    activeShare,
+    setActiveShare,
     selectDestination,
     setRouteOrigin,
     setApiRouteOptions,
