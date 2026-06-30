@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { LocateFixed, Compass } from 'lucide-react';
+import { LocateFixed, Compass, MapPin, PhoneCall } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { MapMock } from './MapMock';
 import { loadKakaoMaps } from '../../utils/kakaoMaps';
+import { haversineMeters } from '../../utils/geo';
 import type { LatLng } from '../../utils/routeCompare';
 
 export type RouteMapPoiType = 'cctv' | 'bell' | 'store' | 'police' | 'safehouse' | 'start' | 'end';
@@ -20,6 +21,10 @@ export interface RouteMapPoi {
   purpose?: string;
   /** CCTV 마커 표시용 카메라 대수. */
   cameraCount?: number;
+  /** 소재지 주소(정보 카드 표시용). */
+  address?: string;
+  /** 전화번호(지구대·파출소 등 — 정보 카드에서 전화 연결). */
+  phone?: string;
 }
 
 interface RouteMapProps {
@@ -133,6 +138,14 @@ const POI_LABEL: Partial<Record<RouteMapPoiType, string>> = {
   safehouse: '여성안심지킴이집',
 };
 
+/** 시설 유형별 한 줄 안내(정보 카드). 무엇인지·어떻게 도움이 되는지 간결히. safehouse는 아래 별도 주의 문구 사용. */
+const POI_HINT: Partial<Record<RouteMapPoiType, string>> = {
+  cctv: '방범용 CCTV로 사각지대를 줄여 줘요.',
+  bell: '누르면 인근 관제센터·경찰로 바로 연결돼요.',
+  store: '야간에도 도움을 청할 수 있는 거점이에요.',
+  police: '긴급할 때 가장 가까운 도움처예요.',
+};
+
 /** 클릭한 마커의 정보(정보 카드 표시용). */
 export interface SelectedPoi {
   type: RouteMapPoiType;
@@ -143,6 +156,10 @@ export interface SelectedPoi {
   purpose?: string;
   /** CCTV 카메라 대수. */
   cameraCount?: number;
+  /** 소재지 주소. */
+  address?: string;
+  /** 전화번호(지구대·파출소 등). */
+  phone?: string;
 }
 
 /** 시설 마커(클릭 시 정보 제공 대상)인지 — 출발/도착은 제외. */
@@ -240,8 +257,14 @@ export function RouteMap({
       polylineRef.current = null;
     }
 
-    // pois가 바뀌면(경로 전환 등) 이전 선택 정보 카드는 닫는다(stale 방지).
-    setSelectedPoi(null);
+    // 경로가 실제로 바뀌어 선택한 시설이 더는 목록에 없을 때만 정보 카드를 닫는다(stale 방지).
+    // GPS 갱신 등 단순 리렌더로 pois 참조만 바뀐 경우엔 같은 시설이 그대로 있으므로 카드를 유지한다
+    // (걷는 중에 팝업이 저절로 닫히던 문제 방지).
+    setSelectedPoi((prev) =>
+      prev && pois.some((p) => hasLatLng(p) && p.type === prev.type && p.lat === prev.lat && p.lng === prev.lng)
+        ? prev
+        : null,
+    );
 
     const bounds = new kakao.maps.LatLngBounds();
     let hasPoint = false;
@@ -250,7 +273,7 @@ export function RouteMap({
       lat: number,
       lng: number,
       type: RouteMapPoiType,
-      info?: { name?: string; purpose?: string; cameraCount?: number },
+      info?: { name?: string; purpose?: string; cameraCount?: number; address?: string; phone?: string },
     ) => {
       const position = new kakao.maps.LatLng(lat, lng);
       // 시설 마커는 클릭 시 정보 카드를 띄운다(출발/도착은 정보 대상 아님). 클릭 가능하게 DOM 엘리먼트로 만든다.
@@ -261,7 +284,16 @@ export function RouteMap({
         el.innerHTML = poiMarkerHtml(type);
         el.style.cursor = 'pointer';
         el.addEventListener('click', () =>
-          setSelectedPoi({ type, name: info?.name, lat, lng, purpose: info?.purpose, cameraCount: info?.cameraCount }),
+          setSelectedPoi({
+            type,
+            name: info?.name,
+            lat,
+            lng,
+            purpose: info?.purpose,
+            cameraCount: info?.cameraCount,
+            address: info?.address,
+            phone: info?.phone,
+          }),
         );
         content = el;
       }
@@ -282,7 +314,15 @@ export function RouteMap({
     if (destination && hasLatLng(destination)) addMarker(destination.lat, destination.lng, 'end');
     pois
       .filter(hasLatLng)
-      .forEach((p) => addMarker(p.lat, p.lng, p.type, { name: p.name, purpose: p.purpose, cameraCount: p.cameraCount }));
+      .forEach((p) =>
+        addMarker(p.lat, p.lng, p.type, {
+          name: p.name,
+          purpose: p.purpose,
+          cameraCount: p.cameraCount,
+          address: p.address,
+          phone: p.phone,
+        }),
+      );
 
     // 경로선: 상세 path가 있으면 Tmap 실경로 좌표열 전체를, 없으면 출발→목적지 직선 폴백.
     if (showRoute && origin && destination && hasLatLng(origin) && hasLatLng(destination)) {
@@ -393,6 +433,17 @@ export function RouteMap({
     setHeadingUp(true);
   };
 
+  // 정보 카드 '현 위치에서 거리' — 실시간 위치(있으면) 또는 출발지 기준 직선거리.
+  const refPos = livePosition && hasLatLng(livePosition) ? livePosition : origin && hasLatLng(origin) ? origin : null;
+  const selectedDistanceM =
+    selectedPoi && refPos ? haversineMeters(refPos, { lat: selectedPoi.lat, lng: selectedPoi.lng }) : null;
+  const distanceLabel =
+    selectedDistanceM == null
+      ? null
+      : selectedDistanceM < 1000
+        ? `${Math.round(selectedDistanceM)}m`
+        : `${(selectedDistanceM / 1000).toFixed(1)}km`;
+
   return (
     <div
       data-testid="route-map"
@@ -460,9 +511,9 @@ export function RouteMap({
         </div>
       )}
 
-      {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/용도·카메라대수/좌표를 보여준다(지도 위 오버레이). */}
+      {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/주소/용도·카메라/거리/안내/전화/좌표(지도 상단 오버레이). */}
       {ready && selectedPoi && (
-        <div data-testid="poi-info-card" className="absolute left-3 right-3 bottom-3 z-30">
+        <div data-testid="poi-info-card" className="absolute left-3 right-3 top-3 z-30">
           <div className="bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-2xl shadow-xl px-4 py-3.5 flex items-start gap-3">
             <span
               className="mt-1 w-3 h-3 rounded-full shrink-0"
@@ -475,7 +526,13 @@ export function RouteMap({
               <div className="text-slate-50 font-bold text-[15px] truncate mt-0.5">
                 {selectedPoi.name?.trim() || '관리기관 정보 없음'}
               </div>
-              {(selectedPoi.purpose || selectedPoi.cameraCount != null) && (
+              {selectedPoi.address && (
+                <div className="text-slate-300 text-xs mt-1 flex items-start gap-1">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-400" />
+                  <span className="leading-snug">{selectedPoi.address}</span>
+                </div>
+              )}
+              {(selectedPoi.purpose || selectedPoi.cameraCount != null || distanceLabel) && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {selectedPoi.purpose && (
                     <span
@@ -490,9 +547,25 @@ export function RouteMap({
                       카메라 {selectedPoi.cameraCount}대
                     </span>
                   )}
+                  {distanceLabel && (
+                    <span className="inline-flex items-center rounded-md bg-slate-700/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100">
+                      현 위치에서 {distanceLabel}
+                    </span>
+                  )}
                 </div>
               )}
-              <div className="text-slate-400 text-xs mt-1">
+              {POI_HINT[selectedPoi.type] && (
+                <div className="text-slate-400 text-[11px] mt-1.5 leading-relaxed">{POI_HINT[selectedPoi.type]}</div>
+              )}
+              {selectedPoi.phone && (
+                <a
+                  href={`tel:${selectedPoi.phone.replace(/[^0-9+]/g, '')}`}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 px-2.5 py-1 text-blue-300 text-xs font-bold active:scale-95"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" /> {selectedPoi.phone}
+                </a>
+              )}
+              <div className="text-slate-500 text-[11px] mt-1.5">
                 위도 {selectedPoi.lat.toFixed(5)} · 경도 {selectedPoi.lng.toFixed(5)}
               </div>
               {selectedPoi.type === 'safehouse' && (
