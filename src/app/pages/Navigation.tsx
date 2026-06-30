@@ -7,7 +7,7 @@ import {
   ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
   type LucideIcon,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -74,10 +74,14 @@ export function NavigationScreen() {
   const routePath: LatLng[] | undefined = 'path' in routeOption ? routeOption.path : undefined;
   // 백엔드 안심 라우팅이 준 경로변 거점 마커(CCTV/안심집/비상벨). 길안내 지도에 그대로 표시한다.
   // 출발/도착은 origin/destination prop 으로 이미 그려지므로 시설 마커만 남긴다(중복 핀 방지).
-  const facilityMarkers: RouteMapPoi[] =
-    'markers' in routeOption && routeOption.markers
-      ? routeOption.markers.filter((m) => m.type !== 'start' && m.type !== 'end')
-      : [];
+  // useMemo: 카운트다운 등 잦은 리렌더마다 새 배열이 되면 RouteMap 이 마커 오버레이를 매번 재생성(깜빡임)하므로 고정.
+  const facilityMarkers: RouteMapPoi[] = useMemo(
+    () =>
+      'markers' in routeOption && routeOption.markers
+        ? routeOption.markers.filter((m) => m.type !== 'start' && m.type !== 'end')
+        : [],
+    [routeOption],
+  );
 
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
