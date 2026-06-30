@@ -29,21 +29,21 @@ describe('RouteMap (폴백)', () => {
 });
 
 describe('poiMarkerHtml (실지도 마커 구분 아이콘)', () => {
-  it('CCTV·비상벨·안심집 마커가 서로 다른 글리프로 그려진다', () => {
+  it('CCTV·비상벨·안심집·지구대 마커가 서로 다른 글리프로 그려진다', () => {
     const cctv = poiMarkerHtml('cctv');
     const bell = poiMarkerHtml('bell');
     const safehouse = poiMarkerHtml('safehouse');
+    const police = poiMarkerHtml('police');
 
-    // 셋 다 SVG 글리프를 가지며 마커 HTML이 서로 다르다(시각적 구분).
-    for (const html of [cctv, bell, safehouse]) expect(html).toContain('<svg');
-    expect(cctv).not.toBe(bell);
-    expect(bell).not.toBe(safehouse);
-    expect(cctv).not.toBe(safehouse);
+    // 넷 다 SVG 글리프를 가지며 마커 HTML이 모두 다르다(유형별 상징 구분).
+    for (const html of [cctv, bell, safehouse, police]) expect(html).toContain('<svg');
+    expect(new Set([cctv, bell, safehouse, police]).size).toBe(4);
 
     // 유형 태그로 어떤 거점인지 식별 가능.
     expect(cctv).toContain('data-poi="cctv"');
     expect(bell).toContain('data-poi="bell"');
     expect(safehouse).toContain('data-poi="safehouse"');
+    expect(police).toContain('data-poi="police"');
   });
 
   it('안심집(B-2) 마커는 영업시간이 아닌 지정 상태임을 라벨로 안내한다', () => {
