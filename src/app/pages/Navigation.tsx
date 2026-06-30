@@ -13,6 +13,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage } from '../utils/share';
+import { endShare } from '../utils/shareSession';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
 import { loadNearestPolice } from '../utils/policeSource';
@@ -64,7 +65,7 @@ const STEP_ADVANCE_METERS = 15;
 export function NavigationScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { destination, primaryContact, routeOrigin, apiRouteOptions } = useApp();
+  const { destination, primaryContact, routeOrigin, apiRouteOptions, activeShareToken, setActiveShareToken } = useApp();
   // 목적지 컨텍스트 — RouteDetail/RouteComparison/ConfirmLocation 가드와 동일 기준(단일 헬퍼).
   const { canRequestRoute, hasDestination, destinationName } = getRouteDestinationContext(destination);
   // RouteDetail에서 선택한 경로를 길안내로 이어받는다(없으면 추천 경로로 폴백).
@@ -212,6 +213,16 @@ export function NavigationScreen() {
     }
   };
 
+  // 귀가 완료: 진행 중인 위치 공유가 있으면 즉시 종료한다 → 보호자가 연 공유 URL이 "공유 종료"로 바뀐다.
+  // 종료는 멱등이고, 실패해도 도착 흐름을 막지 않는다(공유 서버는 어차피 TTL로 자동 만료된다).
+  const handleArrived = () => {
+    if (activeShareToken) {
+      void endShare(activeShareToken).catch(() => {});
+      setActiveShareToken(null);
+    }
+    setArrivedOpen(true);
+  };
+
   // 목적지/좌표가 없으면(직접 진입·새로고침·state 소실·구버전 저장데이터) 가짜 "목적지로 가는 중" 길안내를 띄우거나
   // 보호자에게 "목적지에 안전하게 도착"/긴급 메시지를 의미 없는 플레이스홀더 위치로 보내지 않는다.
   // 검색으로 유도한다(RouteDetail/RouteComparison/ConfirmLocation 가드와 동일 — 단일 기준).
@@ -311,7 +322,7 @@ export function NavigationScreen() {
           <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>
             <Share2 className="w-5 h-5" />
           </Button>
-          <Button className="flex-1 h-14 rounded-[20px] bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold" onClick={() => setArrivedOpen(true)}>
+          <Button className="flex-1 h-14 rounded-[20px] bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold" onClick={handleArrived}>
             <HomeIcon className="w-5 h-5 mr-2" />
             귀가 완료
           </Button>

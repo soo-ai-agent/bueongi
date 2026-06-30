@@ -18,7 +18,7 @@ const SHARE_STATUS_LABEL: Record<ShareAction, string> = {
 
 export function ShareStatus() {
   const navigate = useNavigate();
-  const { destination } = useApp();
+  const { destination, setActiveShareToken } = useApp();
   const destName = destination?.name ?? '목적지';
   const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
 
@@ -38,6 +38,8 @@ export function ShareStatus() {
         if (cancelled) return;
         // 보호자에게 보낼 URL = 백엔드 독립 HTML 지도 페이지(guardian.html). 앱·로그인·카카오 키 없이 브라우저로 열린다.
         setShareUrl(res.shareUrl);
+        // 진행 중 공유 토큰을 store에 보관 → 도착 시 길안내 화면의 '귀가 완료'가 이 토큰으로 공유를 종료한다.
+        setActiveShareToken(res.token);
         // 토큰이 준비되면 공유 중 5초마다 현재 위치를 서버로 보낸다(보호자 웹 폴링과 짝).
         // GPS 실패는 틱 단위로 건너뛰고, 서버 만료(404)면 루프가 스스로 멈춘다.
         const handle = startShareLocationLoop(res.token, {

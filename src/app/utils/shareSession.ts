@@ -8,7 +8,8 @@ import { getShareApiBaseUrl } from './env';
  * - POST /share/create               { expires_in_hours: 1|2|3 } -> { token, share_url, expires_at }
  * - POST /share/{token}/location     { lat, lng }                -> { updated_at, expires_at }
  * - GET  /share/{token}/location                                 -> { lat, lng, updated_at, expired }
- * - GET  /share/{token}                                          -> 보호자 HTML(여긴 미사용, 웹 라우트가 대체)
+ * - POST /share/{token}/end                                      -> 공유 종료(도착·중단). 이후 조회는 expired:true.
+ * - GET  /share/{token}                                          -> 보호자 HTML(독립 지도 페이지, 공유 URL의 실제 대상)
  *
  * 앱은 share_url을 받아 OS 공유 시트/외부 메신저로 넘기고, 공유 중 5초마다 위치를 POST 한다.
  * 보호자 등록/페어링/푸시는 만들지 않는다. base URL 미설정 시 호출부가 정적 폴백으로 동작한다.
@@ -157,4 +158,22 @@ export async function getShareLocation(
   const updatedAtRaw = payload.updated_at ?? payload.updatedAt;
   const updatedAt = typeof updatedAtRaw === 'string' ? updatedAtRaw : null;
   return { lat, lng, updatedAt, expired };
+}
+
+/**
+ * POST /share/{token}/end — 공유 종료(사용자 도착/중단). 호출 후 보호자 페이지는 "공유 종료"로 바뀐다.
+ * 멱등 계약: 이미 만료/없는 토큰(404)도 "이미 종료됨"으로 간주해 에러로 보지 않는다.
+ */
+export async function endShare(token: string, options: ShareClientOptions = {}): Promise<void> {
+  const shareToken = resolveToken(token);
+  const base = resolveBase(options);
+  const fetcher = options.fetchImpl ?? fetch;
+  const response = await fetcher(`${base}/share/${encodeURIComponent(shareToken)}/end`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    signal: options.signal,
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`공유 종료 실패: ${response.status}`);
+  }
 }
