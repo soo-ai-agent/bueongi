@@ -57,10 +57,11 @@ describe('poiMarkerHtml (실지도 마커 구분 아이콘)', () => {
 });
 
 describe('livePositionMarkerHtml (실시간 위치 마커)', () => {
-  it('파란 맥동 원 + 흰 테두리로 현재 위치를 표시한다', () => {
+  it('사용자를 부엉이(🦉) + emerald 맥동 링으로 표시한다', () => {
     const html = livePositionMarkerHtml();
-    expect(html).toContain('#3b82f6');
+    expect(html).toContain('🦉');
     expect(html).toContain('animation:ping');
-    expect(html).toContain('border:2px solid white');
+    // heading-up(지도 회전) 시에도 부엉이가 똑바로 보이도록 지도 회전을 상쇄한다.
+    expect(html).toContain('var(--map-heading');
   });
 });

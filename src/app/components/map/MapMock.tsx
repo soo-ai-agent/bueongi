@@ -64,17 +64,17 @@ export function MapMock({ pois = [], showRoute = false, routeType = 'safe', acti
         </svg>
       )}
 
-      {/* Active Dot */}
+      {/* Active marker — 사용자를 부엉이(🦉)로 표시 */}
       {active && (
-        <motion.div 
-          className="absolute top-[65%] left-[32%] -translate-x-1/2 -translate-y-1/2 z-20"
-          animate={{ scale: [1, 1.2, 1] }}
+        <motion.div
+          className="absolute top-[47%] left-[42%] -translate-x-1/2 -translate-y-1/2 z-20"
+          animate={{ scale: [1, 1.1, 1] }}
           transition={{ repeat: Infinity, duration: 2 }}
         >
-          <div className="relative">
-            <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-40" />
-            <div className="relative bg-emerald-400 w-6 h-6 rounded-full border-4 border-slate-700 shadow-md flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-slate-800 rounded-full" />
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-10 h-10 bg-emerald-400 rounded-full animate-ping opacity-30" />
+            <div className="relative w-8 h-8 rounded-full bg-slate-900 border-2 border-emerald-400 shadow-md flex items-center justify-center text-lg leading-none">
+              🦉
             </div>
           </div>
         </motion.div>

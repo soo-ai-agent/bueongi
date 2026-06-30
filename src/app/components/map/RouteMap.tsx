@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { LocateFixed, Compass } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { MapMock } from './MapMock';
 import { loadKakaoMaps } from '../../utils/kakaoMaps';
@@ -35,8 +36,10 @@ interface RouteMapProps {
   zoom?: number;
   /** Tmap 보행자 경로 상세 좌표열. 있으면 직선 대신 실제 경로를 Polyline으로 그린다. */
   path?: LatLng[];
-  /** 내비게이션 중 실시간 현재 위치. 별도 마커(파란 점)로 표시된다. */
+  /** 내비게이션 중 실시간 현재 위치. 부엉이(🦉) 마커로 표시된다. */
   livePosition?: LatLng | null;
+  /** 지도 컨트롤(현 위치 따라가기/재중심, 방향 회전 토글) 노출 여부. 길안내 화면에서만 켠다. */
+  showControls?: boolean;
 }
 
 const ROUTE_COLORS: Record<NonNullable<RouteMapProps['routeType']>, string> = {
@@ -100,11 +103,15 @@ export function poiMarkerHtml(type: RouteMapPoiType): string {
   );
 }
 
-/** 내비게이션 실시간 위치 마커 HTML(파란 맥동 원 + 흰 테두리). */
+/**
+ * 내비게이션 실시간 위치 마커 HTML. 사용자를 부엉이(🦉)로 표시한다.
+ * emerald 맥동 링 + 어두운 원형 배경 위 부엉이. heading-up(지도 회전) 시에도 부엉이가 똑바로 보이도록
+ * 지도 회전(CSS 변수 --map-heading)을 상쇄해 역회전한다.
+ */
 export function livePositionMarkerHtml(): string {
-  return `<div style="position:relative;width:20px;height:20px;transform:translate(-50%,-50%)">
-      <div style="position:absolute;inset:0;background:#3b82f6;border-radius:9999px;opacity:0.3;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite"></div>
-      <div style="position:absolute;inset:3px;background:#3b82f6;border-radius:9999px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
+  return `<div style="position:relative;width:44px;height:44px;transform:translate(-50%,-50%)">
+      <div style="position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;background:#34d399;border-radius:9999px;opacity:0.25;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite"></div>
+      <div style="position:absolute;left:50%;top:50%;width:32px;height:32px;margin:-16px 0 0 -16px;display:flex;align-items:center;justify-content:center;background:#0f172a;border:2px solid #34d399;border-radius:9999px;box-shadow:0 2px 6px rgba(0,0,0,.5);font-size:18px;line-height:1;transform:rotate(var(--map-heading,0deg))">🦉</div>
     </div>`;
 }
 
@@ -160,6 +167,7 @@ export function RouteMap({
   zoom = 1,
   path,
   livePosition = null,
+  showControls = false,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<KakaoMap | null>(null);
@@ -171,6 +179,12 @@ export function RouteMap({
   const [ready, setReady] = useState(false);
   // 사용자가 누른 시설 마커의 정보(클릭 정보 카드). 마커가 갱신되면 닫는다.
   const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
+  // 지도가 현재 위치를 따라가는지(자동 중심 이동). 사용자가 지도를 직접 드래그하면 꺼지고, '현 위치' 버튼으로 다시 켠다.
+  const [following, setFollowing] = useState(true);
+  // heading-up: 기기 나침반 방향대로 지도를 회전(true). 기본은 북쪽 위(false).
+  const [headingUp, setHeadingUp] = useState(false);
+  // 기기 나침반 방위각(도, 0=북). headingUp 일 때만 갱신한다.
+  const [heading, setHeading] = useState(0);
 
   // 컨테이너 크기가 늦게 확정될 때 타일이 깨진 채 남는 것을 막는 relayout + bounds 재적용.
   const refreshMap = useCallback(() => {
@@ -196,6 +210,8 @@ export function RouteMap({
         scrollwheel: true,
       });
       mapRef.current = map;
+      // 사용자가 지도를 직접 드래그하면 자동 따라가기를 끈다('현 위치' 버튼으로 다시 켤 수 있음).
+      kakao.maps.event.addListener(map, 'dragstart', () => setFollowing(false));
       // +/- 줌 버튼을 오른쪽에 추가
       const zoomControl = new kakao.maps.ZoomControl();
       map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
@@ -317,22 +333,131 @@ export function RouteMap({
     }
   }, [ready, livePosition]);
 
+  // 4) 따라가기: 현재 위치가 갱신되거나 '현 위치'로 다시 켜지면 지도를 그 위치로 부드럽게 이동한다.
+  useEffect(() => {
+    if (!ready || !showControls || !following) return;
+    const kakao = window.kakao;
+    const map = mapRef.current;
+    if (!kakao?.maps || !map || !livePosition || !hasLatLng(livePosition)) return;
+    map.panTo(new kakao.maps.LatLng(livePosition.lat, livePosition.lng));
+  }, [ready, showControls, following, livePosition]);
+
+  // 5) heading-up: 기기 나침반(deviceorientation)으로 방위각을 받아 지도 회전(--map-heading)에 사용한다.
+  useEffect(() => {
+    if (!showControls || !headingUp) return;
+    const onOrient = (event: Event) => {
+      const e = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
+      const compass =
+        typeof e.webkitCompassHeading === 'number'
+          ? e.webkitCompassHeading // iOS: 0=북, 시계방향
+          : typeof e.alpha === 'number'
+            ? 360 - e.alpha // 안드로이드/표준 alpha 보정
+            : null;
+      if (compass != null && Number.isFinite(compass)) setHeading(((compass % 360) + 360) % 360);
+    };
+    window.addEventListener('deviceorientationabsolute', onOrient, true);
+    window.addEventListener('deviceorientation', onOrient, true);
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', onOrient, true);
+      window.removeEventListener('deviceorientation', onOrient, true);
+    };
+  }, [showControls, headingUp]);
+
+  // '현 위치' 버튼: 따라가기를 다시 켜고 현재 위치로 중심 이동한다.
+  const handleRecenter = () => {
+    setFollowing(true);
+    const kakao = window.kakao;
+    const map = mapRef.current;
+    if (kakao?.maps && map && livePosition && hasLatLng(livePosition)) {
+      map.panTo(new kakao.maps.LatLng(livePosition.lat, livePosition.lng));
+    }
+  };
+
+  // '방향' 토글: 끄면 북쪽 위, 켜면 기기 나침반 방향대로 지도 회전. iOS 13+ 는 센서 권한을 먼저 요청한다.
+  const handleToggleHeading = async () => {
+    if (headingUp) {
+      setHeadingUp(false);
+      setHeading(0);
+      return;
+    }
+    const DOE = window.DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<'granted' | 'denied' | 'default'>;
+    };
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      try {
+        if ((await DOE.requestPermission()) !== 'granted') return; // 권한 거부 시 북쪽 위 유지.
+      } catch {
+        return;
+      }
+    }
+    setHeadingUp(true);
+  };
+
   return (
-    <div data-testid="route-map" className={cn('relative w-full h-full overflow-hidden', className)}>
-      {/* 실지도 컨테이너 — ready일 때만 보이고, 그 전/실패 시엔 아래 MapMock이 노출된다. */}
+    <div
+      data-testid="route-map"
+      className={cn('relative w-full h-full overflow-hidden', className)}
+      style={{ '--map-heading': `${heading}deg` } as CSSProperties}
+    >
+      {/* 회전 레이어: heading-up이면 지도를 기기 방향(-heading)으로 회전하고, 모서리가 비지 않게 확대한다.
+          컨트롤 버튼은 이 레이어 밖(아래)에 두어 항상 똑바로 보인다. */}
       <div
-        ref={containerRef}
-        className="absolute inset-0 z-10 bg-slate-700"
-        style={{ display: ready ? 'block' : 'none' }}
-      />
-      {!ready && (
-        <MapMock
-          pois={pois}
-          showRoute={showRoute}
-          routeType={routeType}
-          active={active}
-          zoom={zoom}
+        className="absolute inset-0"
+        style={
+          headingUp
+            ? {
+                transform: `rotate(${-heading}deg) scale(1.4)`,
+                transformOrigin: 'center',
+                transition: 'transform 0.15s linear',
+              }
+            : undefined
+        }
+      >
+        {/* 실지도 컨테이너 — ready일 때만 보이고, 그 전/실패 시엔 아래 MapMock이 노출된다. */}
+        <div
+          ref={containerRef}
+          className="absolute inset-0 z-10 bg-slate-700"
+          style={{ display: ready ? 'block' : 'none' }}
         />
+        {!ready && (
+          <MapMock pois={pois} showRoute={showRoute} routeType={routeType} active={active} zoom={zoom} />
+        )}
+      </div>
+
+      {/* 지도 컨트롤(길안내 화면 전용): 현 위치 따라가기/재중심 + 방향(heading-up) 토글 */}
+      {showControls && (
+        <div className="absolute left-3 bottom-[210px] z-30 flex flex-col gap-2">
+          <button
+            type="button"
+            data-testid="map-recenter-btn"
+            onClick={handleRecenter}
+            aria-label="현 위치로 이동"
+            aria-pressed={following}
+            className={cn(
+              'w-12 h-12 rounded-full flex items-center justify-center shadow-lg border backdrop-blur-md transition-colors active:scale-95',
+              following
+                ? 'bg-emerald-500/90 border-emerald-300/40 text-emerald-950'
+                : 'bg-slate-800/90 border-slate-600 text-slate-100 hover:bg-slate-700',
+            )}
+          >
+            <LocateFixed className="w-6 h-6" />
+          </button>
+          <button
+            type="button"
+            data-testid="map-heading-btn"
+            onClick={handleToggleHeading}
+            aria-label="휴대폰 방향으로 지도 회전"
+            aria-pressed={headingUp}
+            className={cn(
+              'w-12 h-12 rounded-full flex items-center justify-center shadow-lg border backdrop-blur-md transition-colors active:scale-95',
+              headingUp
+                ? 'bg-emerald-500/90 border-emerald-300/40 text-emerald-950'
+                : 'bg-slate-800/90 border-slate-600 text-slate-100 hover:bg-slate-700',
+            )}
+          >
+            <Compass className="w-6 h-6" />
+          </button>
+        </div>
       )}
 
       {/* 시설 마커 클릭 정보 카드 — 유형/관리기관명/용도·카메라대수/좌표를 보여준다(지도 위 오버레이). */}

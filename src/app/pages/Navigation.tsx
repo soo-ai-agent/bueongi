@@ -282,6 +282,7 @@ export function NavigationScreen() {
         <RouteMap
           showRoute
           active
+          showControls
           origin={routeOrigin}
           destination={destination}
           routeType={normalizeRouteType(routeOption.type)}

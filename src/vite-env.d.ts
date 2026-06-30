@@ -26,6 +26,16 @@ interface KakaoMap {
   relayout(): void;
   setBounds(bounds: KakaoMapsLatLngBounds): void;
   addControl(control: KakaoMapControl, position: KakaoControlPosition): void;
+  /** 부드럽게 중심 이동(현 위치 따라가기/재중심용). */
+  panTo(latlng: KakaoMapsLatLng): void;
+  /** 즉시 중심 이동. */
+  setCenter(latlng: KakaoMapsLatLng): void;
+}
+
+/** 지도 이벤트 바인딩(드래그 시작 시 자동 따라가기 해제 등). */
+interface KakaoMapsEvent {
+  addListener(target: unknown, type: string, handler: () => void): void;
+  removeListener(target: unknown, type: string, handler: () => void): void;
 }
 
 interface KakaoMapControl {}
@@ -106,6 +116,7 @@ interface KakaoMapsApi {
   }) => KakaoMapOverlay;
   ZoomControl: new () => KakaoMapControl;
   ControlPosition: Record<string, KakaoControlPosition>;
+  event: KakaoMapsEvent;
 }
 
 interface KakaoMapsGlobal {
