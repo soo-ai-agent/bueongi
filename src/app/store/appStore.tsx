@@ -55,7 +55,8 @@ const initialState: AppState = {
     school: { name: null, address: null, lat: null, lng: null },
     work: { name: null, address: null, lat: null, lng: null },
   },
-  contacts: [{ id: 1, name: '아빠', phone: '010-1234-5678' }],
+  // 긴급 연락처도 시드 없이 비워 둔다 — 사용자가 직접 등록한 보호자만 보관한다(가짜 번호로 오발신 방지).
+  contacts: [],
 };
 
 function normalizeSavedPlace(place: Partial<SavedPlace> | null | undefined): SavedPlace {
@@ -71,6 +72,15 @@ function normalizeSavedPlace(place: Partial<SavedPlace> | null | undefined): Sav
 function savedPlaceFromDestination(place: Destination | null): SavedPlace {
   if (!place) return { name: null, address: null, lat: null, lng: null };
   return { name: place.name, address: place.address, lat: place.lat, lng: place.lng };
+}
+
+/** localStorage 에 저장된 상태가 있는지 — 내장 DB(SQLite) 복원 여부 판단용(없으면 DB 에서 복원 시도). */
+function hadStoredState(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) != null;
+  } catch {
+    return false;
+  }
 }
 
 function loadState(): AppState {
@@ -154,11 +164,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [routeOrigin, setRouteOriginState] = useState<LatLng | null>(null);
   const [apiRouteOptions, setApiRouteOptionsState] = useState<RouteOption[]>([]);
   const [activeShare, setActiveShare] = useState<ActiveShare | null>(null);
+  const [dbReady, setDbReady] = useState(false);
+  // 마운트 시점(어떤 effect 도 실행되기 전)의 localStorage 보유 여부를 고정한다.
+  // 아래 persist effect 가 빈 초기 상태를 즉시 localStorage 에 쓰기 때문에, effect 안에서 hadStoredState()를
+  // 다시 부르면 항상 true 가 되어 내장 DB 복원이 영영 막힌다 — 그래서 렌더 단계에서 한 번만 캡처한다.
+  const [hadLocalAtMount] = useState(() => hadStoredState());
 
-  // 전체 상태 영속(폴백). 안전 데이터 setter는 아래에서 동기 persist 결과를 직접 반환한다.
+  // 전체 상태 영속(동기 미러). 안전 데이터 setter는 아래에서 동기 persist 결과를 직접 반환한다(저장 실패 정직 고지).
   useEffect(() => {
     persistAppState(STORAGE_KEY, state);
   }, [state]);
+
+  // 내장 DB(SQLite, sql.js → IndexedDB) 미러 — 최근 목적지·자주 가는 장소·긴급 연락처·현재 목적지를 구조화 저장한다.
+  // 브라우저에서만 동작하고, IndexedDB 미지원 환경(테스트 jsdom 등)에서는 건너뛴다.
+  // 마운트 시: localStorage 가 비어 있는데 내장 DB 에 데이터가 있으면 DB 에서 복원한다(localStorage 초기화 후 복구).
+  useEffect(() => {
+    if (typeof indexedDB === 'undefined') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const db = await import('./appDb');
+        if (!db.isSupported()) return;
+        if (!hadLocalAtMount) {
+          const restored = await db.loadStateFromDb();
+          if (!cancelled && restored) setState(restored);
+        }
+      } catch {
+        // 내장 DB 비가용/실패는 비치명 — localStorage 로 계속 동작한다.
+      } finally {
+        if (!cancelled) setDbReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 상태가 바뀌면(DB 준비 후) 내장 DB 에도 반영한다 — 준비 직후 현재 상태로 시드되고, 이후 변경마다 동기화된다.
+  useEffect(() => {
+    if (!dbReady || typeof indexedDB === 'undefined') return;
+    void import('./appDb')
+      .then((db) => (db.isSupported() ? db.saveStateToDb(state) : undefined))
+      .catch(() => {
+        // 영속 실패는 비치명 — 동기 미러(localStorage)가 안전 계약을 유지한다.
+      });
+  }, [state, dbReady]);
 
   const selectDestination = (dest: Destination) => {
     setApiRouteOptionsState([]);
