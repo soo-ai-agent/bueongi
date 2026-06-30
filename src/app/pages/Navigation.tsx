@@ -1,5 +1,4 @@
 import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
-import { EtaBadge } from '../components/EtaBadge';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import {
@@ -280,11 +279,6 @@ export function NavigationScreen() {
           <span className="text-xl">🦉</span>
           부엉이 동행 중
         </div>
-        {/* 예상 도착 시간(ETA) 배지 */}
-        <div className="flex justify-center mt-3">
-          <EtaBadge minutes={minutesLeft} />
-        </div>
-
         {/* 보호자 시청 중 표시 — 보호자가 공유 링크로 실제 위치를 보는 동안만 노출되고, 나가면 사라진다. */}
         {watching && (
           <div className="flex justify-center mt-2 pointer-events-auto">
