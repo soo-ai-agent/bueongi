@@ -18,7 +18,7 @@ const SHARE_STATUS_LABEL: Record<ShareAction, string> = {
 
 export function ShareStatus() {
   const navigate = useNavigate();
-  const { destination, setActiveShare } = useApp();
+  const { destination, activeShare, setActiveShare } = useApp();
   const destName = destination?.name ?? '목적지';
   const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
 
@@ -32,29 +32,41 @@ export function ShareStatus() {
     if (!isShareApiConfigured()) return; // 미설정 시 정적 링크 폴백 유지
     let cancelled = false;
     let stopLoop: (() => void) | null = null;
-    // 공유 화면 진입 시 1시간 TTL 공유 토큰을 만들어 보호자 URL을 준비한다.
-    createShare(1)
-      .then((res) => {
-        if (cancelled) return;
-        // 보호자에게 보낼 URL = 백엔드 독립 HTML 지도 페이지(guardian.html). 앱·로그인·카카오 키 없이 브라우저로 열린다.
-        setShareUrl(res.shareUrl);
-        // 진행 중 공유(읽기 토큰 + 쓰기 비밀)를 store에 보관 → 도착 시 '귀가 완료'가 이 비밀로 공유를 종료한다.
-        setActiveShare({ token: res.token, ownerSecret: res.ownerSecret });
-        // 토큰이 준비되면 공유 중 5초마다 현재 위치를 서버로 보낸다(보호자 웹 폴링과 짝).
-        // 쓰기 비밀(ownerSecret)을 함께 넘겨야 서버가 위치 갱신을 수락한다(공유 URL만으로는 조작 불가).
-        const handle = startShareLocationLoop(res.token, {
-          getLocation: () => getBrowserCurrentLocation().catch(() => null),
-          ownerSecret: res.ownerSecret,
+
+    // 공유 중 5초마다 현재 위치를 서버로 보내는 루프 시작. 쓰기 비밀(ownerSecret)을 함께 넘겨야
+    // 서버가 위치 갱신을 수락한다(공유 URL만으로는 조작 불가). GPS 실패는 틱 단위로 건너뛴다.
+    const beginLoop = (token: string, ownerSecret: string) => {
+      stopLoop = startShareLocationLoop(token, {
+        getLocation: () => getBrowserCurrentLocation().catch(() => null),
+        ownerSecret,
+      }).stop;
+    };
+
+    if (activeShare) {
+      // 이미 진행 중인 공유가 있으면 새로 만들지 않고 재사용한다 → 귀가 1회 = URL 1개.
+      // 공유 화면을 다시 열어도 링크가 바뀌지 않고, 먼저 보낸 링크가 멈추지 않는다.
+      setShareUrl(activeShare.shareUrl);
+      beginLoop(activeShare.token, activeShare.ownerSecret);
+    } else {
+      // 첫 공유: 1시간 TTL 토큰/비밀을 발급해 보호자 URL(독립 HTML 지도 페이지)을 준비하고 store에 보관한다.
+      // 보관한 정보는 화면 재진입 시 재사용 + '귀가 완료' 시 비밀로 공유 종료에 쓰인다.
+      createShare(1)
+        .then((res) => {
+          if (cancelled) return;
+          setShareUrl(res.shareUrl);
+          setActiveShare({ token: res.token, ownerSecret: res.ownerSecret, shareUrl: res.shareUrl });
+          beginLoop(res.token, res.ownerSecret);
+        })
+        .catch(() => {
+          // 생성 실패 시 정적 링크 폴백을 유지(거짓확신 없이 조용히 폴백).
         });
-        stopLoop = handle.stop;
-      })
-      .catch(() => {
-        // 생성 실패 시 정적 링크 폴백을 유지(거짓확신 없이 조용히 폴백).
-      });
+    }
     return () => {
       cancelled = true;
       stopLoop?.();
     };
+    // activeShare 는 '공유 시작' 시점(마운트) 값만 쓴다 — deps 에 넣으면 setActiveShare 로 매번 재시작된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleKakao = async () => {

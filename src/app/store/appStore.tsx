@@ -116,6 +116,8 @@ export function removeContactFromState(
 export interface ActiveShare {
   token: string;
   ownerSecret: string;
+  /** 보호자에게 보낼 URL(백엔드 독립 HTML 페이지). 공유 화면을 다시 열 때 같은 링크를 재사용하려고 보관한다. */
+  shareUrl: string;
 }
 
 interface AppStore extends AppState {
