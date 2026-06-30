@@ -195,3 +195,27 @@ export async function endShare(token: string, options: ShareClientOptions = {}):
     throw new Error(`공유 종료 실패: ${response.status}`);
   }
 }
+
+/**
+ * POST /share/{token}/watching — 보호자가 현재 공유 위치를 보고 있는지(사용자 본인용). owner_secret 필요.
+ * 이 호출 자체는 시청자로 집계되지 않으므로(관리자 본인 확인 제외) 길안내 화면에서 주기적으로 확인하기 안전하다.
+ * 만료/없는 토큰/네트워크 오류는 "보는 사람 없음(false)"으로 간주한다.
+ */
+export async function getShareWatching(
+  token: string,
+  ownerSecret: string,
+  options: ShareClientOptions = {},
+): Promise<boolean> {
+  const shareToken = resolveToken(token);
+  const base = resolveBase(options);
+  const fetcher = options.fetchImpl ?? fetch;
+  const response = await fetcher(`${base}/share/${encodeURIComponent(shareToken)}/watching`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ owner_secret: ownerSecret }),
+    signal: options.signal,
+  });
+  if (!response.ok) return false;
+  const payload = (await response.json()) as Record<string, unknown>;
+  return payload.watching === true;
+}

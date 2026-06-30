@@ -4,7 +4,7 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import {
   Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
-  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
+  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints, Eye,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -13,7 +13,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage } from '../utils/share';
-import { endShare } from '../utils/shareSession';
+import { endShare, getShareWatching, isShareApiConfigured } from '../utils/shareSession';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
 import { loadNearestPolice } from '../utils/policeSource';
@@ -93,6 +93,8 @@ export function NavigationScreen() {
   const [livePosition, setLivePosition] = useState<LatLng | null>(routeOrigin ?? null);
   const [remainingDistanceM, setRemainingDistanceM] = useState<number | null>(null);
   const [remainingTimeS, setRemainingTimeS] = useState<number | null>(null);
+  // 보호자가 현재 공유 위치를 보고 있는지(상단 '보호자 시청 중' 표시용). 공유 중일 때만 갱신된다.
+  const [watching, setWatching] = useState(false);
 
   // 단계 안내가 없을 때만(폴백) mock 카운트다운으로 ETA를 줄인다.
   useEffect(() => {
@@ -136,6 +138,30 @@ export function NavigationScreen() {
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, [steps, currentStepIdx]);
+
+  // 보호자가 실제로 공유 위치를 보고 있는지 5초마다 확인한다(공유 중일 때만).
+  // owner_secret 으로 조회하므로 이 확인 자체는 시청자로 집계되지 않는다 — 관리자 본인 확인은 알림을 만들지 않는다.
+  useEffect(() => {
+    if (!activeShare || !isShareApiConfigured()) {
+      setWatching(false);
+      return;
+    }
+    let stopped = false;
+    const check = async () => {
+      try {
+        const w = await getShareWatching(activeShare.token, activeShare.ownerSecret);
+        if (!stopped) setWatching(w);
+      } catch {
+        if (!stopped) setWatching(false);
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 5000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [activeShare]);
 
   const currentStep: NavStep | null = steps[currentStepIdx] ?? null;
   const guide = currentStep ? turnGuide(currentStep.turnType) : null;
@@ -258,6 +284,19 @@ export function NavigationScreen() {
         <div className="flex justify-center mt-3">
           <EtaBadge minutes={minutesLeft} />
         </div>
+
+        {/* 보호자 시청 중 표시 — 보호자가 공유 링크로 실제 위치를 보는 동안만 노출되고, 나가면 사라진다. */}
+        {watching && (
+          <div className="flex justify-center mt-2 pointer-events-auto">
+            <div
+              data-testid="nav-watching-badge"
+              className="bg-blue-500/20 backdrop-blur-md text-blue-200 text-sm font-bold px-4 py-2 rounded-full border border-blue-400/30 flex items-center gap-2 shadow-lg"
+            >
+              <Eye className="w-4 h-4" />
+              보호자가 보는 중
+            </div>
+          </div>
+        )}
 
         {/* 현재 단계 안내 카드 — 실제 턴바이턴 단계가 있을 때만 표시.
             (단계 없을 때 뜨던 "경로를 따라 이동해 주세요" 기본 안내 팝업은 제거.) */}
