@@ -5,7 +5,7 @@ import { MapMock } from './MapMock';
 import { loadKakaoMaps } from '../../utils/kakaoMaps';
 import type { LatLng } from '../../utils/routeCompare';
 
-export type RouteMapPoiType = 'cctv' | 'bell' | 'store' | 'police' | 'safehouse' | 'start' | 'end';
+export type RouteMapPoiType = 'cctv' | 'bell' | 'store' | 'police' | 'safehouse' | 'lamp' | 'start' | 'end';
 
 export interface RouteMapPoi {
   type: RouteMapPoiType;
@@ -59,12 +59,13 @@ const POI_BORDER: Record<RouteMapPoiType, string> = {
   store: '#60a5fa',
   police: '#3b82f6',
   safehouse: '#a78bfa',
+  lamp: '#fbbf24',
   start: '#475569',
   end: '#3b82f6',
 };
 
 // 시설 유형별 구분 글리프(lucide 계열 stroke path). MapMock의 아이콘과 의미를 맞춰
-// CCTV(카메라)·비상벨(종)·안심집(집)·편의점(상점)·지구대(방패)를 실지도에서도 한눈에 구분한다.
+// CCTV(카메라)·비상벨(종)·안심집(집)·편의점(상점)·지구대(방패)·가로등(전구)을 실지도에서도 한눈에 구분한다.
 // start/end는 글리프 없이 점으로 둔다.
 const POI_GLYPH: Partial<Record<RouteMapPoiType, string>> = {
   cctv: '<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/>',
@@ -72,6 +73,7 @@ const POI_GLYPH: Partial<Record<RouteMapPoiType, string>> = {
   safehouse: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
   store: '<path d="m2 7 1.5-3h17L22 7"/><path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M2 7h20"/>',
   police: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  lamp: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
 };
 
 function isFiniteCoord(value: unknown): value is number {
@@ -126,6 +128,7 @@ const POI_TITLE: Partial<Record<RouteMapPoiType, string>> = {
   store: '편의점',
   police: '지구대·파출소',
   safehouse: '여성안심지킴이집(지정 상태·영업시간 정보 없음)',
+  lamp: '가로등·조명',
 };
 
 /** 마커 클릭 정보 카드용 시설 유형 라벨(간결). start/end는 클릭 정보 대상이 아니다. */
@@ -135,6 +138,7 @@ const POI_LABEL: Partial<Record<RouteMapPoiType, string>> = {
   store: '편의점',
   police: '지구대·파출소',
   safehouse: '여성안심지킴이집',
+  lamp: '가로등·조명',
 };
 
 /** 시설 유형별 한 줄 안내(정보 카드). 무엇인지·어떻게 도움이 되는지 간결히. safehouse는 아래 별도 주의 문구 사용. */
@@ -143,6 +147,7 @@ const POI_HINT: Partial<Record<RouteMapPoiType, string>> = {
   bell: '누르면 인근 관제센터·경찰로 바로 연결돼요.',
   store: '야간에도 도움을 청할 수 있는 거점이에요.',
   police: '긴급할 때 가장 가까운 도움처예요.',
+  lamp: '어두운 길을 밝혀 줘 야간 시야를 넓혀 줘요.',
 };
 
 /** 클릭한 마커의 정보(정보 카드 표시용). */

@@ -43,7 +43,8 @@ export const fallbackFacilitySummary: FacilitySummary = {
  */
 export function getSafehouseCount(
   facilities: FacilitiesResponse | null,
-  visiblePois: RouteDetailPoi[],
+  // 레거시 facilities preview(RouteDetailPoi)와 백엔드 안심 라우팅 markers(RouteMapPoi, lamp 등 포함) 모두 받는다.
+  visiblePois: ReadonlyArray<RouteDetailPoi | RouteMapPoi>,
 ): number {
   if (facilities?.pois.length && typeof facilities.summary.safehouse === 'number') {
     return facilities.summary.safehouse;

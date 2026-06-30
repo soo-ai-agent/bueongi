@@ -107,6 +107,7 @@ function isRouteMapPoiType(value: unknown): value is RouteMapPoiType {
     value === 'store' ||
     value === 'police' ||
     value === 'safehouse' ||
+    value === 'lamp' ||
     value === 'start' ||
     value === 'end'
   );

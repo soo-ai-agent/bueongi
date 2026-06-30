@@ -27,7 +27,7 @@ describe('scoreRoute', () => {
     expect(result.score).toBe(0);
   });
 
-  it('CCTV 밀도가 포화 기준이면 CCTV 가중치만큼(35점) 기여', () => {
+  it('CCTV 밀도가 포화 기준이면 CCTV 가중치만큼(30점) 기여', () => {
     // 약 1.1km 경로에 25개 → 약 22.5개/km(포화 20 초과) → cctv 정규화 1.0.
     const result = scoreRoute({ path, facilities: { ...empty, cctv: alongRoute(25) } });
     expect(result.breakdown.cctvDensity).toBeGreaterThanOrEqual(20);
@@ -40,10 +40,17 @@ describe('scoreRoute', () => {
     expect(result.score).toBe(Math.round(WEIGHTS.safePath * 100));
   });
 
-  it('여성안심지킴이집 개수가 포화면 safehouse 가중치(5점) 기여', () => {
+  it('여성안심지킴이집 개수가 포화면 safehouse 가중치(7점) 기여', () => {
     const result = scoreRoute({ path, facilities: { ...empty, safehouse: alongRoute(3) } });
     expect(result.breakdown.safehouseCount).toBe(3);
     expect(result.score).toBe(Math.round(WEIGHTS.safehouse * 100));
+  });
+
+  it('지구대·파출소 개수가 포화면 police 가중치(10점) 기여', () => {
+    // 포화 기준 2곳 → police 정규화 1.0.
+    const result = scoreRoute({ path, facilities: { ...empty, police: alongRoute(2) } });
+    expect(result.breakdown.policeCount).toBe(2);
+    expect(result.score).toBe(Math.round(WEIGHTS.police * 100));
   });
 
   it('빈 경로(좌표 1개)에서도 폭주 없이 유한 점수', () => {

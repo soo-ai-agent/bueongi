@@ -19,14 +19,18 @@ export const SATURATION = {
   lampPerKm: 40,
   bellPerKm: 5,
   safehouseCount: 3,
+  /** 지구대·파출소 개수 — 희소 시설이라 2곳이면 만점 기여. */
+  policeCount: 2,
 } as const;
 
-/** 설계 가중치(합 1.0). */
+// 설계 가중치(합 1.0). 백엔드 SafetyScorer 와 동형 — 지구대·파출소(0.10)·여성안심지킴이집(0.07)
+// 반영분만큼 CCTV/조명/비상벨을 재배분했다.
 export const WEIGHTS = {
-  cctv: 0.35,
-  lamp: 0.25,
-  bell: 0.2,
-  safehouse: 0.05,
+  cctv: 0.3,
+  lamp: 0.2,
+  bell: 0.18,
+  safehouse: 0.07,
+  police: 0.1,
   safePath: 0.15,
 } as const;
 
@@ -35,6 +39,8 @@ export interface SafetyFacilities {
   lamp: LatLng[];
   bell: LatLng[];
   safehouse: LatLng[];
+  /** 지구대·파출소(긴급 도움처). 점수에만 반영, 누락 시 0개로 처리. */
+  police?: LatLng[];
 }
 
 export interface SafetyScoreInput {
@@ -51,6 +57,7 @@ export interface SafetyScoreBreakdown {
   lampDensity: number;
   bellDensity: number;
   safehouseCount: number;
+  policeCount: number;
   safePathOverlap: number;
 }
 
@@ -77,6 +84,8 @@ export function scoreRoute(input: SafetyScoreInput): SafetyScore {
   const lampInCorridor = countWithinCorridor(input.facilities.lamp, input.path, corridor);
   const bellInCorridor = countWithinCorridor(input.facilities.bell, input.path, corridor);
   const safehouseInCorridor = countWithinCorridor(input.facilities.safehouse, input.path, corridor);
+  // 지구대·파출소(긴급 도움처)도 점수에 반영. 희소 시설이라 개수 기반 정규화.
+  const policeInCorridor = countWithinCorridor(input.facilities.police ?? [], input.path, corridor);
 
   const cctvDensity = cctvInCorridor / km;
   const lampDensity = lampInCorridor / km;
@@ -98,6 +107,7 @@ export function scoreRoute(input: SafetyScoreInput): SafetyScore {
     WEIGHTS.lamp * saturate(lampDensity, SATURATION.lampPerKm) +
     WEIGHTS.bell * saturate(bellDensity, SATURATION.bellPerKm) +
     WEIGHTS.safehouse * saturate(safehouseInCorridor, SATURATION.safehouseCount) +
+    WEIGHTS.police * saturate(policeInCorridor, SATURATION.policeCount) +
     WEIGHTS.safePath * safePathOverlap;
 
   return {
@@ -108,6 +118,7 @@ export function scoreRoute(input: SafetyScoreInput): SafetyScore {
       lampDensity: Math.round(lampDensity * 100) / 100,
       bellDensity: Math.round(bellDensity * 100) / 100,
       safehouseCount: safehouseInCorridor,
+      policeCount: policeInCorridor,
       safePathOverlap: Math.round(safePathOverlap * 1000) / 1000,
     },
   };
