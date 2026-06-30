@@ -26,11 +26,15 @@ const slides = [
 export function Onboarding() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  // 온보딩은 '처음 앱을 켤 때' 1회만 노출한다. 이미 본(또는 건너뛴) 사용자는 콜드스타트 시
+  // 슬라이드를 한 프레임도 그리지 않고(깜빡임 방지) 홈으로 바로 진입한다(위급 시 접근 지연 방지).
+  const [seen] = useState(() => hasSeenOnboarding());
 
-  // 이미 온보딩을 본(또는 건너뛴) 사용자는 콜드스타트 시 홈으로 바로 진입(위급 시 접근 지연 방지)
   useEffect(() => {
-    if (hasSeenOnboarding()) navigate('/home', { replace: true });
-  }, [navigate]);
+    if (seen) navigate('/home', { replace: true });
+  }, [seen, navigate]);
+
+  if (seen) return null; // 이미 본 사용자: 온보딩을 그리지 않는다.
 
   const completeOnboarding = () => {
     markOnboardingSeen();

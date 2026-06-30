@@ -47,12 +47,11 @@ export const MAX_CONTACTS = 3;
 
 const initialState: AppState = {
   destination: null,
-  recentDestinations: [
-    { name: '강남역 2번 출구', address: '서울 강남구 강남대로', lat: 37.4979, lng: 127.0276 },
-    { name: '스타벅스 신사점', address: '서울 강남구 도산대로', lat: 37.5228, lng: 127.0219 },
-  ],
+  // 최근 목적지는 시드 없이 비워 둔다 — 사용자가 실제로 다녀온 목적지만 쌓인다(selectDestination).
+  recentDestinations: [],
+  // 집·학교·회사는 처음엔 모두 미설정 → 홈에서 '+' 버튼으로 노출되고, 사용자가 직접 등록한다.
   savedPlaces: {
-    home: { name: '집', address: '서울 강남구 역삼로', lat: 37.5003, lng: 127.0365 },
+    home: { name: null, address: null, lat: null, lng: null },
     school: { name: null, address: null, lat: null, lng: null },
     work: { name: null, address: null, lat: null, lng: null },
   },

@@ -1,4 +1,4 @@
-import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, UserCircle, MapPin, X } from 'lucide-react';
+import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, UserCircle, MapPin, X, Plus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
@@ -93,15 +93,16 @@ export function Home() {
             <button
               key={place.key}
               onClick={() => handleQuickPlace(place)}
-              className="flex flex-col items-center justify-center py-5 bg-slate-700 border border-slate-600 rounded-[24px] hover:bg-slate-600 transition-colors shadow-sm gap-3 active:scale-95 relative"
+              aria-label={place.isSet ? `${place.label}으로 안내` : `${place.label} 등록하기`}
+              className={`flex flex-col items-center justify-center py-5 bg-slate-700 border rounded-[24px] hover:bg-slate-600 transition-colors shadow-sm gap-3 active:scale-95 ${
+                place.isSet ? 'border-slate-600' : 'border-dashed border-slate-500'
+              }`}
             >
-              <div className={`p-4 rounded-full ${place.bg} ${place.color}`}>
-                {place.icon}
+              {/* 미설정 장소는 '+' 추가 버튼으로 노출 → 탭하면 장소 검색(등록)으로 진입한다. */}
+              <div className={`p-4 rounded-full ${place.isSet ? `${place.bg} ${place.color}` : 'bg-slate-600/40 text-slate-300'}`}>
+                {place.isSet ? place.icon : <Plus className="w-6 h-6" />}
               </div>
               <span className="text-sm font-medium text-slate-200">{place.label}</span>
-              {!place.isSet && (
-                <div className="absolute top-3 right-3 w-2 h-2 bg-red-400 rounded-full" />
-              )}
             </button>
           ))}
         </div>
