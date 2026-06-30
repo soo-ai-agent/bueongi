@@ -138,7 +138,6 @@ export function NavigationScreen() {
   }, [steps, currentStepIdx]);
 
   const currentStep: NavStep | null = steps[currentStepIdx] ?? null;
-  const nextStep: NavStep | null = steps[currentStepIdx + 1] ?? null;
   const guide = currentStep ? turnGuide(currentStep.turnType) : null;
   const GuideIcon = guide?.Icon ?? Navigation2;
 
@@ -304,20 +303,11 @@ export function NavigationScreen() {
 
       {/* Bottom Status Bar */}
       <div className="absolute bottom-0 inset-x-0 bg-slate-700 rounded-t-[32px] p-6 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] border-t border-slate-600 z-20">
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <p className="text-slate-300 text-sm mb-1 font-medium">{destinationName}로 가는 중 · {routeOption.name}</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-slate-50">{minutesLeft}<span className="text-2xl text-slate-400">분</span></span>
-              <span className="text-slate-300 text-lg font-medium">남음 ({distanceText})</span>
-            </div>
-          </div>
+        {/* 남은 시간·거리(핵심 정보만 유지) */}
+        <div className="flex items-baseline gap-2 mb-5">
+          <span className="text-4xl font-bold text-slate-50">{minutesLeft}<span className="text-2xl text-slate-400">분</span></span>
+          <span className="text-slate-300 text-lg font-medium">남음 ({distanceText})</span>
         </div>
-
-        {/* 다음 단계 미리보기 */}
-        <p className="text-slate-400 text-sm mb-6 font-medium">
-          다음: {nextStep ? (nextStep.description || turnGuide(nextStep.turnType).label) : '목적지 도착'}
-        </p>
 
         <div className="flex gap-3">
           <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>
