@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin, Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -186,6 +186,19 @@ export function ShareStatus() {
             링크 복사하기
           </button>
         </div>
+
+        {/* 관리자(본인) 미리보기 — 보호자에게 보이는 실시간 화면을 따로 확인한다.
+            owner_secret 으로 조회하므로 이 미리보기는 보호자 시청으로 집계되지 않는다(길안내 '동행 중' 알림 미발생). */}
+        {shareUrl && (
+          <button
+            data-testid="share-preview-btn"
+            onClick={() => navigate('/share/preview')}
+            className="w-full bg-slate-700/60 border border-slate-600 text-slate-200 rounded-[20px] p-4 flex items-center justify-center gap-2 font-medium hover:bg-slate-700 transition-colors shadow-sm active:scale-95"
+          >
+            <Eye className="w-5 h-5 text-blue-300" />
+            보호자에게 보이는 화면 미리보기
+          </button>
+        )}
       </div>
     </div>
   );

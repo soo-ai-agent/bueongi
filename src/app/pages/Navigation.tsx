@@ -3,7 +3,7 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { Button } from '../components/ui/Button';
 import {
   Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
-  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints, Eye,
+  ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -92,7 +92,7 @@ export function NavigationScreen() {
   const [livePosition, setLivePosition] = useState<LatLng | null>(routeOrigin ?? null);
   const [remainingDistanceM, setRemainingDistanceM] = useState<number | null>(null);
   const [remainingTimeS, setRemainingTimeS] = useState<number | null>(null);
-  // 보호자가 현재 공유 위치를 보고 있는지(상단 '보호자 시청 중' 표시용). 공유 중일 때만 갱신된다.
+  // 보호자가 현재 공유 위치를 보고 있는지(상단 '부엉이 동행 중' 알림 표시용). 공유 중일 때만 갱신된다.
   const [watching, setWatching] = useState(false);
 
   // 단계 안내가 없을 때만(폴백) mock 카운트다운으로 ETA를 줄인다.
@@ -275,21 +275,34 @@ export function NavigationScreen() {
         animate={{ y: 0 }}
         className="absolute top-0 inset-x-0 z-30 pt-8 mt-4 px-4 pointer-events-none"
       >
+        {/* 기본 안내(차분) — 앱이 동행 중임을 알린다. 보호자가 실제로 보는 중이면 아래 '부엉이 동행 중' 알림으로 격상된다. */}
         <div className="bg-emerald-500/20 backdrop-blur-md text-emerald-300 font-bold px-6 py-3.5 rounded-full shadow-lg border border-emerald-400/30 flex items-center justify-center gap-3 max-w-[200px] mx-auto pointer-events-auto">
           <span className="text-xl">🦉</span>
-          부엉이 동행 중
+          안심 귀가 중
         </div>
-        {/* 보호자 시청 중 표시 — 보호자가 공유 링크로 실제 위치를 보는 동안만 노출되고, 나가면 사라진다. */}
+        {/* '부엉이 동행 중' 알림 — 보호자가 공유 링크로 실제 위치를 보는 동안만 떴다가, 나가면 사라진다.
+            owner_secret 으로만 시청 여부를 확인하므로 관리자 본인 확인/미리보기는 이 알림을 만들지 않는다. */}
         {watching && (
-          <div className="flex justify-center mt-2 pointer-events-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="flex justify-center mt-2.5 pointer-events-auto"
+          >
             <div
               data-testid="nav-watching-badge"
-              className="bg-blue-500/20 backdrop-blur-md text-blue-200 text-sm font-bold px-4 py-2 rounded-full border border-blue-400/30 flex items-center gap-2 shadow-lg"
+              className="bg-emerald-500/95 text-white pl-4 pr-5 py-2.5 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.45)] flex items-center gap-3 max-w-[300px]"
             >
-              <Eye className="w-4 h-4" />
-              보호자가 보는 중
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-100 opacity-75 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+              </span>
+              <span className="text-xl leading-none shrink-0">🦉</span>
+              <div className="leading-tight">
+                <div className="font-bold text-sm">부엉이 동행 중</div>
+                <div className="text-emerald-50/90 text-xs font-medium">보호자가 함께 보고 있어요</div>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* 현재 단계 안내 카드 — 실제 턴바이턴 단계가 있을 때만 표시.

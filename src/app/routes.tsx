@@ -7,6 +7,7 @@ import { RouteComparison } from "./pages/RouteComparison";
 import { RouteDetail } from "./pages/RouteDetail";
 import { NavigationScreen } from "./pages/Navigation";
 import { ShareStatus } from "./pages/ShareStatus";
+import { SharePreview } from "./pages/SharePreview";
 import { GuardianShare } from "./pages/GuardianShare";
 import { MyPage } from "./pages/MyPage";
 import { PlaceSearch } from "./pages/PlaceSearch";
@@ -27,6 +28,9 @@ export const router = createBrowserRouter([
       { path: "route/:id", Component: RouteDetail },
       { path: "navigate", Component: NavigationScreen },
       { path: "share", Component: ShareStatus },
+      // 관리자(본인) 미리보기: 보호자에게 보이는 화면을 owner_secret 으로 따로 본다(시청자 미집계).
+      // 정적 세그먼트라 아래 동적 :token 보다 우선 매칭된다.
+      { path: "share/preview", Component: SharePreview },
       // 보호자 공유 페이지: 로그인 없이 URL(/share/{token})만으로 접근, 5초 폴링.
       { path: "share/:token", Component: GuardianShare },
       { path: "mypage", Component: MyPage },

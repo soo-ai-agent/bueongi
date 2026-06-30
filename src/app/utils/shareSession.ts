@@ -197,15 +197,29 @@ export async function endShare(token: string, options: ShareClientOptions = {}):
 }
 
 /**
- * POST /share/{token}/watching — 보호자가 현재 공유 위치를 보고 있는지(사용자 본인용). owner_secret 필요.
- * 이 호출 자체는 시청자로 집계되지 않으므로(관리자 본인 확인 제외) 길안내 화면에서 주기적으로 확인하기 안전하다.
- * 만료/없는 토큰/네트워크 오류는 "보는 사람 없음(false)"으로 간주한다.
+ * 관리자(사용자 본인) 전용 공유 상태: 보호자가 보는 중인지 + 현재 공유 위치(보호자에게 보이는 화면).
+ * owner_secret 으로만 받으며, 이 조회는 시청자로 집계되지 않는다 — 관리자 미리보기가 '보호자 시청 중' 알림을 만들지 않는다.
  */
-export async function getShareWatching(
+export interface ShareOwnerView {
+  /** 최근 유효시간 내 보호자(뷰어) 조회가 있었는지(누군가 보는 중). */
+  watching: boolean;
+  lat: number | null;
+  lng: number | null;
+  updatedAt: string | null;
+  /** 토큰 없음/만료 시 true(좌표 null) — 미리보기 UI 가 "공유 종료"를 그린다. */
+  expired: boolean;
+}
+
+/**
+ * POST /share/{token}/watching — 관리자 전용 조회: 보호자 시청 여부 + 현재 공유 위치를 함께 받는다(owner_secret 필요).
+ * 이 호출 자체는 시청자로 집계되지 않으므로(관리자 본인 확인·미리보기 제외) 길안내/미리보기에서 주기적으로 확인해도 안전하다.
+ * 만료/없는 토큰/네트워크 오류는 "보는 사람 없음 + 공유 종료(expired)"로 정직하게 표면화한다.
+ */
+export async function getShareOwnerView(
   token: string,
   ownerSecret: string,
   options: ShareClientOptions = {},
-): Promise<boolean> {
+): Promise<ShareOwnerView> {
   const shareToken = resolveToken(token);
   const base = resolveBase(options);
   const fetcher = options.fetchImpl ?? fetch;
@@ -215,7 +229,29 @@ export async function getShareWatching(
     body: JSON.stringify({ owner_secret: ownerSecret }),
     signal: options.signal,
   });
-  if (!response.ok) return false;
+  // 잘못된 비밀/네트워크 오류(혹은 404)는 미리보기를 멈추지 않고 "종료"로 정직하게 그린다.
+  if (!response.ok) return { watching: false, lat: null, lng: null, updatedAt: null, expired: true };
   const payload = (await response.json()) as Record<string, unknown>;
-  return payload.watching === true;
+  const { lat, lng } = toShareLocationCoordinates(payload);
+  const updatedAtRaw = payload.updated_at ?? payload.updatedAt;
+  const updatedAt = typeof updatedAtRaw === 'string' ? updatedAtRaw : null;
+  return {
+    watching: payload.watching === true,
+    lat,
+    lng,
+    updatedAt,
+    expired: payload.expired === true,
+  };
+}
+
+/**
+ * POST /share/{token}/watching — 보호자가 현재 공유 위치를 보고 있는지만 얕게 확인(길안내 '동행 중' 알림용).
+ * [getShareOwnerView] 의 watching 만 추려 쓰는 얇은 래퍼 — 이 호출도 시청자로 집계되지 않는다.
+ */
+export async function getShareWatching(
+  token: string,
+  ownerSecret: string,
+  options: ShareClientOptions = {},
+): Promise<boolean> {
+  return (await getShareOwnerView(token, ownerSecret, options)).watching;
 }

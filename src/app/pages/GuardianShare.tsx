@@ -24,7 +24,7 @@ export const GUARDIAN_POLL_INTERVAL_MS = 5000;
  */
 export const GUARDIAN_STALE_THRESHOLD_MS = 30_000;
 
-type GuardianState = 'loading' | 'live' | 'stale' | 'waiting' | 'expired' | 'error';
+export type GuardianState = 'loading' | 'live' | 'stale' | 'waiting' | 'expired' | 'error';
 
 interface GuardianView {
   state: GuardianState;
