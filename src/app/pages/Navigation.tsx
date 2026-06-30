@@ -249,24 +249,21 @@ export function NavigationScreen() {
           <EtaBadge minutes={minutesLeft} />
         </div>
 
-        {/* 현재 단계 안내 카드 — 큰 방향 아이콘 + 안내 문구. 단계 없으면 기본 메시지. */}
-        <div className="mt-3 max-w-[340px] mx-auto pointer-events-auto">
-          <div className="bg-slate-900/80 backdrop-blur-md text-slate-50 rounded-[24px] shadow-lg border border-slate-700 px-5 py-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
-              <GuideIcon className="w-7 h-7 text-emerald-300" />
-            </div>
-            <div className="min-w-0">
-              {currentStep ? (
-                <>
-                  <p className="text-xl font-bold leading-tight">{guide?.label}</p>
-                  <p className="text-slate-300 text-sm mt-0.5 truncate">{currentStep.description || `${guide?.label} 안내`}</p>
-                </>
-              ) : (
-                <p className="text-base font-semibold leading-tight">경로를 따라 이동해 주세요</p>
-              )}
+        {/* 현재 단계 안내 카드 — 실제 턴바이턴 단계가 있을 때만 표시.
+            (단계 없을 때 뜨던 "경로를 따라 이동해 주세요" 기본 안내 팝업은 제거.) */}
+        {currentStep && (
+          <div className="mt-3 max-w-[340px] mx-auto pointer-events-auto">
+            <div className="bg-slate-900/80 backdrop-blur-md text-slate-50 rounded-[24px] shadow-lg border border-slate-700 px-5 py-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                <GuideIcon className="w-7 h-7 text-emerald-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold leading-tight">{guide?.label}</p>
+                <p className="text-slate-300 text-sm mt-0.5 truncate">{currentStep.description || `${guide?.label} 안내`}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </motion.div>
 
       <div className="flex-1 w-full h-full relative">
