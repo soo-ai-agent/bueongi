@@ -43,11 +43,19 @@ export interface SafePath {
   sigunguCode?: string;
 }
 
+/** manifest의 파일 엔트리(파이프라인 산출물 계약). 캐시 무효화에 sha256을 쓴다. */
+export interface CdnManifestFile {
+  path: string;
+  type?: string;
+  count?: number;
+  sha256?: string;
+}
+
 export interface CdnManifest {
   version: string;
   generatedAt?: string;
-  /** 파일별 버전/건수. 파일 단위 무효화에 쓴다. */
-  files?: Record<string, { version?: string; count?: number } | undefined>;
+  /** 파일별 메타(배열). 파이프라인 buildManifest 산출물과 동일 계약 — 파일 단위 무효화에 sha256 사용. */
+  files?: CdnManifestFile[];
 }
 
 const SCHEMA = 1;
@@ -227,7 +235,12 @@ export function loadSafepath(version: string, options: CdnClientOptions = {}): P
   return loadCachedArray('safepath:all', 'safepath/all.json', version, toSafePath, options);
 }
 
-/** manifest에서 파일 버전을 끌어온다. 없으면 manifest 전체 버전으로 폴백. */
+/**
+ * manifest에서 파일 단위 캐시버스터를 끌어온다.
+ * 파이프라인 산출물은 files를 배열 [{path, sha256, ...}]로 내므로 path로 찾아 sha256을 쓴다
+ * (sha256은 파일 내용 해시라 버전 문자열보다 정확한 무효화 키다). 엔트리가 없으면 전역 version 폴백.
+ */
 export function fileVersion(manifest: CdnManifest, file: string): string {
-  return manifest.files?.[file]?.version ?? manifest.version;
+  const entry = manifest.files?.find((f) => f.path === file);
+  return entry?.sha256 ?? manifest.version;
 }
