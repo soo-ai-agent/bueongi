@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { LocateFixed, Compass, MapPin, PhoneCall } from 'lucide-react';
+import { LocateFixed, Compass, MapPin, PhoneCall, ExternalLink } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { MapMock } from './MapMock';
 import { loadKakaoMaps } from '../../utils/kakaoMaps';
-import { haversineMeters } from '../../utils/geo';
 import type { LatLng } from '../../utils/routeCompare';
 
 export type RouteMapPoiType = 'cctv' | 'bell' | 'store' | 'police' | 'safehouse' | 'start' | 'end';
@@ -433,16 +432,10 @@ export function RouteMap({
     setHeadingUp(true);
   };
 
-  // 정보 카드 '현 위치에서 거리' — 실시간 위치(있으면) 또는 출발지 기준 직선거리.
-  const refPos = livePosition && hasLatLng(livePosition) ? livePosition : origin && hasLatLng(origin) ? origin : null;
-  const selectedDistanceM =
-    selectedPoi && refPos ? haversineMeters(refPos, { lat: selectedPoi.lat, lng: selectedPoi.lng }) : null;
-  const distanceLabel =
-    selectedDistanceM == null
-      ? null
-      : selectedDistanceM < 1000
-        ? `${Math.round(selectedDistanceM)}m`
-        : `${(selectedDistanceM / 1000).toFixed(1)}km`;
+  // 외부 지도(네이버/카카오) 검색어 — 업소명 + 주소(여성안심지킴이집 정보 링크용).
+  const placeQuery = selectedPoi
+    ? [selectedPoi.name, selectedPoi.address].map((s) => s?.trim()).filter(Boolean).join(' ')
+    : '';
 
   return (
     <div
@@ -532,7 +525,7 @@ export function RouteMap({
                   <span className="leading-snug">{selectedPoi.address}</span>
                 </div>
               )}
-              {(selectedPoi.purpose || selectedPoi.cameraCount != null || distanceLabel) && (
+              {(selectedPoi.purpose || selectedPoi.cameraCount != null) && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {selectedPoi.purpose && (
                     <span
@@ -545,11 +538,6 @@ export function RouteMap({
                   {selectedPoi.cameraCount != null && (
                     <span className="inline-flex items-center rounded-md bg-slate-700/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100">
                       카메라 {selectedPoi.cameraCount}대
-                    </span>
-                  )}
-                  {distanceLabel && (
-                    <span className="inline-flex items-center rounded-md bg-slate-700/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100">
-                      현 위치에서 {distanceLabel}
                     </span>
                   )}
                 </div>
@@ -565,13 +553,33 @@ export function RouteMap({
                   <PhoneCall className="w-3.5 h-3.5" /> {selectedPoi.phone}
                 </a>
               )}
-              <div className="text-slate-500 text-[11px] mt-1.5">
-                위도 {selectedPoi.lat.toFixed(5)} · 경도 {selectedPoi.lng.toFixed(5)}
-              </div>
               {selectedPoi.type === 'safehouse' && (
-                <div className="text-slate-500 text-[11px] mt-1 leading-relaxed">
-                  지정된 거점일 뿐 영업시간 정보가 없어요. 방문 전 운영 여부를 확인해 주세요.
-                </div>
+                <>
+                  <div className="text-slate-500 text-[11px] mt-1.5 leading-relaxed">
+                    지정된 거점일 뿐 영업시간 정보가 없어요. 방문 전 운영 여부를 확인해 주세요.
+                  </div>
+                  {placeQuery && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {/* 네이버·카카오 지도에서 해당 거점의 상세 정보(영업시간·리뷰 등)를 확인할 수 있게 검색 링크 연결. */}
+                      <a
+                        href={`https://map.naver.com/p/search/${encodeURIComponent(placeQuery)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#03C75A]/15 border border-[#03C75A]/40 px-2.5 py-1 text-[#34d97f] text-[11px] font-bold active:scale-95"
+                      >
+                        네이버지도 <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <a
+                        href={`https://map.kakao.com/?q=${encodeURIComponent(placeQuery)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#FEE500]/15 border border-[#FEE500]/40 px-2.5 py-1 text-[#FEE500] text-[11px] font-bold active:scale-95"
+                      >
+                        카카오지도 <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <button
