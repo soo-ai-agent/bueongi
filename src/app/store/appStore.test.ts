@@ -7,7 +7,11 @@ const KEY = 'bueongi-app-state-v1';
 const baseState: AppState = {
   destination: null,
   recentDestinations: [],
-  savedPlaces: { home: { address: null }, school: { address: null }, work: { address: null } },
+  savedPlaces: {
+    home: { name: null, address: null, lat: null, lng: null },
+    school: { name: null, address: null, lat: null, lng: null },
+    work: { name: null, address: null, lat: null, lng: null },
+  },
   contacts: [
     { id: 1, name: '아빠', phone: '010-1111-2222' },
     { id: 2, name: '엄마', phone: '010-3333-4444' },

@@ -1,9 +1,9 @@
 import { cn } from '../ui/utils';
-import { Video, Bell, Store, Shield } from 'lucide-react';
+import { Video, Bell, Store, Shield, Home } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface POI {
-  type: 'cctv' | 'bell' | 'store' | 'police' | 'start' | 'end';
+  type: 'cctv' | 'bell' | 'store' | 'police' | 'safehouse' | 'start' | 'end';
   x: number; // percentage 0-100
   y: number; // percentage 0-100
 }
@@ -25,6 +25,7 @@ export function MapMock({ pois = [], showRoute = false, routeType = 'safe', acti
       case 'bell': return <div className="bg-slate-600 p-1.5 rounded-full border-2 border-red-400 shadow-md"><Bell className="w-4 h-4 text-red-400" /></div>;
       case 'store': return <div className="bg-slate-600 p-1.5 rounded-full border-2 border-blue-400 shadow-md"><Store className="w-4 h-4 text-blue-400" /></div>;
       case 'police': return <div className="bg-slate-600 p-1.5 rounded-full border-2 border-blue-500 shadow-md"><Shield className="w-4 h-4 text-blue-400" /></div>;
+      case 'safehouse': return <div className="bg-slate-600 p-1.5 rounded-full border-2 border-violet-400 shadow-md"><Home className="w-4 h-4 text-violet-400" /></div>;
       case 'start': return <div className="bg-slate-200 p-2 rounded-full border-4 border-slate-600 shadow-md"><div className="w-3 h-3 bg-slate-800 rounded-full" /></div>;
       case 'end': return <div className="bg-blue-500 p-2 rounded-full border-4 border-slate-600 shadow-md"><div className="w-3 h-3 bg-slate-100 rounded-full" /></div>;
       default: return null;

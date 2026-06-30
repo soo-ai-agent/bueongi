@@ -1,21 +1,25 @@
 import { ArrowLeft, MapPin, Crosshair } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { MapMock } from '../components/map/MapMock';
+import { RouteMap } from '../components/map/RouteMap';
 import { Button } from '../components/ui/Button';
 import { useApp } from '../store/appStore';
+import { getRouteDestinationContext } from '../utils/routeSelection';
 
 export function ConfirmLocation() {
   const navigate = useNavigate();
   const { destination } = useApp();
+  const { canRequestRoute, hasDestination } = getRouteDestinationContext(destination);
 
-  // 목적지가 없으면(직접 진입) 검색으로 되돌림
-  if (!destination) {
+  // 목적지 또는 유효 좌표가 없으면(직접 진입·구버전 저장데이터) 검색으로 되돌림.
+  if (!destination || !canRequestRoute) {
     return (
       <div className="flex flex-col h-full bg-slate-800 items-center justify-center text-center px-8 gap-4">
         <div className="w-14 h-14 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400">
           <MapPin className="w-6 h-6" />
         </div>
-        <p className="text-slate-300 font-medium">선택된 목적지가 없어요</p>
+        <p className="text-slate-300 font-medium">
+          {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
+        </p>
         <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
           목적지 검색하기
         </Button>
@@ -40,7 +44,7 @@ export function ConfirmLocation() {
 
       <div className="flex-1 w-full h-full relative">
         {/* Map with destination point */}
-        <MapMock pois={[{ type: 'end', x: 50, y: 50 }]} zoom={1.5} />
+        <RouteMap destination={destination} pois={[{ type: 'end', x: 50, y: 50 }]} zoom={1.5} />
 
         {/* Center Target overlay */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

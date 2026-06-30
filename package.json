@@ -8,7 +8,11 @@
     "dev": "vite --port 3619",
     "preview": "vite preview --port 3619",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:external": "E2E_USE_EXTERNAL_SERVER=1 playwright test",
+    "test:e2e:list": "playwright test --list",
+    "test:e2e:deep": "DEEP_VERIFY=1 E2E_USE_EXTERNAL_SERVER=1 playwright test deep-verify-real"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

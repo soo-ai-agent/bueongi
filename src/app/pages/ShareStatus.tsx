@@ -1,9 +1,12 @@
 import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
-import { isUserCancelledShare, buildReturnShareText } from '../utils/share';
+import { isUserCancelledShare, composeReturnShareMessage } from '../utils/share';
+import { createShare, isShareApiConfigured } from '../utils/shareSession';
+import { startShareLocationLoop } from '../utils/shareLocationLoop';
+import { getBrowserCurrentLocation } from '../utils/currentLocation';
 
 // 공유 상태: 수신 여부가 아닌 '사용자가 취한 행동'만 정직하게 표시(거짓 "전달됨" 금지).
 type ShareAction = 'idle' | 'shared' | 'copied';
@@ -19,16 +22,43 @@ export function ShareStatus() {
   const destName = destination?.name ?? '목적지';
   const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
 
-  // 공유 메시지 (보호자에게 전달될 안심귀가 상태)
-  const shareMessage = buildReturnShareText(destName);
-  const shareUrl = `${window.location.origin}/share`;
-  const shareText = `${shareMessage}\n${shareUrl}`;
+  // 위치 공유 서버가 설정되면 토큰 URL(/share/{token})을 공유한다.
+  // 미설정/생성 실패면 null로 둬, 토큰 없는 `/share`(발신자 본인 화면) 링크를 보호자에게 보내지 않는다.
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // 링크 유무에 따라 거짓 "실시간 위치" 약속·깨진 링크 없이 정직하게 합성한다.
+  const shareText = composeReturnShareMessage(destName, shareUrl);
+
+  useEffect(() => {
+    if (!isShareApiConfigured()) return; // 미설정 시 정적 링크 폴백 유지
+    let cancelled = false;
+    let stopLoop: (() => void) | null = null;
+    // 공유 화면 진입 시 1시간 TTL 공유 토큰을 만들어 보호자 URL을 준비한다.
+    createShare(1)
+      .then((res) => {
+        if (cancelled) return;
+        setShareUrl(`${window.location.origin}/share/${res.token}`);
+        // 토큰이 준비되면 공유 중 5초마다 현재 위치를 서버로 보낸다(보호자 웹 폴링과 짝).
+        // GPS 실패는 틱 단위로 건너뛰고, 서버 만료(404)면 루프가 스스로 멈춘다.
+        const handle = startShareLocationLoop(res.token, {
+          getLocation: () => getBrowserCurrentLocation().catch(() => null),
+        });
+        stopLoop = handle.stop;
+      })
+      .catch(() => {
+        // 생성 실패 시 정적 링크 폴백을 유지(거짓확신 없이 조용히 폴백).
+      });
+    return () => {
+      cancelled = true;
+      stopLoop?.();
+    };
+  }, []);
 
   const handleKakao = async () => {
     // 카카오 SDK 연동 전: Web Share API 우선, 미지원 시 클립보드 폴백
     if (navigator.share) {
       try {
-        await navigator.share({ title: '부엉이 안심귀가', text: shareMessage, url: shareUrl });
+        // shareText에 위치 링크가 이미 포함(있을 때만)되므로 url 중복 전달하지 않는다.
+        await navigator.share({ title: '부엉이 안심귀가', text: shareText });
         setShareStatus('shared');
         return;
       } catch (err) {
@@ -90,8 +120,8 @@ export function ShareStatus() {
             <div className="flex justify-between items-center">
               <span className="text-slate-300 font-medium">공유 내용</span>
               <span className="text-slate-300 font-medium flex items-center gap-1.5 text-sm">
-                <MapPin className="w-4 h-4 text-blue-300" />
-                위치 링크 + 목적지
+                {shareUrl && <MapPin className="w-4 h-4 text-blue-300" />}
+                {shareUrl ? '위치 링크 + 목적지' : '목적지'}
               </span>
             </div>
             <div className="flex justify-between items-center">
