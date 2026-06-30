@@ -209,9 +209,9 @@ export function NavigationScreen() {
               <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
                 <Phone className="w-6 h-6 text-slate-200" />
               </div>
-              <div className="text-left flex-1">
+              <div className="text-left flex-1 min-w-0">
                 <div className="text-lg font-bold">보호자에게 연락</div>
-                <div className="text-slate-300 text-sm mt-1 font-medium">{primaryContact.name}</div>
+                <div className="text-slate-300 text-sm mt-1 font-medium truncate">{primaryContact.name}</div>
               </div>
             </a>
           ) : (

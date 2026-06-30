@@ -110,6 +110,7 @@ export function EmergencyContact() {
                 placeholder="이름 (예: 엄마)"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={20}
                 className="w-full bg-slate-800 border border-slate-600 rounded-[16px] px-4 py-3 text-slate-50 placeholder:text-slate-500 outline-none focus:border-blue-400 transition-colors"
               />
               <input
