@@ -22,7 +22,7 @@ export function ShareStatus() {
   const destName = destination?.name ?? '목적지';
   const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
 
-  // 위치 공유 서버가 설정되면 토큰 URL(/share/{token})을 공유한다.
+  // 위치 공유 서버가 설정되면 백엔드가 준 보호자 URL(res.shareUrl = 독립 HTML 지도 페이지)을 공유한다.
   // 미설정/생성 실패면 null로 둬, 토큰 없는 `/share`(발신자 본인 화면) 링크를 보호자에게 보내지 않는다.
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   // 링크 유무에 따라 거짓 "실시간 위치" 약속·깨진 링크 없이 정직하게 합성한다.
@@ -36,7 +36,8 @@ export function ShareStatus() {
     createShare(1)
       .then((res) => {
         if (cancelled) return;
-        setShareUrl(`${window.location.origin}/share/${res.token}`);
+        // 보호자에게 보낼 URL = 백엔드 독립 HTML 지도 페이지(guardian.html). 앱·로그인·카카오 키 없이 브라우저로 열린다.
+        setShareUrl(res.shareUrl);
         // 토큰이 준비되면 공유 중 5초마다 현재 위치를 서버로 보낸다(보호자 웹 폴링과 짝).
         // GPS 실패는 틱 단위로 건너뛰고, 서버 만료(404)면 루프가 스스로 멈춘다.
         const handle = startShareLocationLoop(res.token, {
