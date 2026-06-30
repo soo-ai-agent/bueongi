@@ -275,35 +275,33 @@ export function NavigationScreen() {
         animate={{ y: 0 }}
         className="absolute top-0 inset-x-0 z-30 pt-8 mt-4 px-4 pointer-events-none"
       >
-        {/* 기본 안내(차분) — 앱이 동행 중임을 알린다. 보호자가 실제로 보는 중이면 아래 '부엉이 동행 중' 알림으로 격상된다. */}
-        <div className="bg-emerald-500/20 backdrop-blur-md text-emerald-300 font-bold px-6 py-3.5 rounded-full shadow-lg border border-emerald-400/30 flex items-center justify-center gap-3 max-w-[200px] mx-auto pointer-events-auto">
-          <span className="text-xl">🦉</span>
-          안심 귀가 중
-        </div>
-        {/* '부엉이 동행 중' 알림 — 보호자가 공유 링크로 실제 위치를 보는 동안만 떴다가, 나가면 사라진다.
-            owner_secret 으로만 시청 여부를 확인하므로 관리자 본인 확인/미리보기는 이 알림을 만들지 않는다. */}
-        {watching && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="flex justify-center mt-2.5 pointer-events-auto"
-          >
-            <div
-              data-testid="nav-watching-badge"
-              className="bg-emerald-500/95 text-white pl-4 pr-5 py-2.5 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.45)] flex items-center gap-3 max-w-[300px]"
-            >
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-100 opacity-75 animate-ping" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-              </span>
-              <span className="text-xl leading-none shrink-0">🦉</span>
-              <div className="leading-tight">
-                <div className="font-bold text-sm">부엉이 동행 중</div>
-                <div className="text-emerald-50/90 text-xs font-medium">보호자가 함께 보고 있어요</div>
-              </div>
+        {/* 동행 안내 배너 — 기본은 차분한 '부엉이 동행 중'. 보호자가 공유 링크로 실제 위치를 보는 동안엔
+            강조되고 '보호자가 함께 보고 있어요'가 붙는다(보호자가 나가면 다시 차분한 기본으로 돌아온다).
+            시청 여부는 owner_secret 으로만 확인하므로 관리자 본인 확인/미리보기는 강조(알림)를 켜지 않는다. */}
+        <div
+          data-testid="nav-companion-banner"
+          className={`mx-auto pointer-events-auto rounded-full shadow-lg flex items-center justify-center gap-3 transition-all duration-200 ${
+            watching
+              ? 'bg-emerald-500/95 text-white pl-4 pr-5 py-2.5 shadow-[0_8px_30px_rgba(16,185,129,0.45)] max-w-[320px]'
+              : 'bg-emerald-500/20 backdrop-blur-md text-emerald-300 font-bold px-6 py-3.5 border border-emerald-400/30 max-w-[200px]'
+          }`}
+        >
+          {watching && (
+            <span data-testid="nav-watching-badge" className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-100 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+            </span>
+          )}
+          <span className="text-xl leading-none shrink-0">🦉</span>
+          {watching ? (
+            <div className="leading-tight">
+              <div className="font-bold text-sm">부엉이 동행 중</div>
+              <div className="text-emerald-50/90 text-xs font-medium">보호자가 함께 보고 있어요</div>
             </div>
-          </motion.div>
-        )}
+          ) : (
+            <span>부엉이 동행 중</span>
+          )}
+        </div>
 
         {/* 현재 단계 안내 카드 — 실제 턴바이턴 단계가 있을 때만 표시.
             (단계 없을 때 뜨던 "경로를 따라 이동해 주세요" 기본 안내 팝업은 제거.) */}
