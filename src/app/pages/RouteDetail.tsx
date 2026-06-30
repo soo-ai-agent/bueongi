@@ -1,3 +1,4 @@
+
 import { ArrowLeft, ShieldAlert, Navigation2, MapPin, LocateFixed, LoaderCircle, Video, Bell, Store, Shield, Home, Info } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { RouteMap, type RouteMapPoi } from '../components/map/RouteMap';
@@ -6,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Tag } from '../components/ui/Tag';
 import { getRouteTagIcon, mockRoutes } from './RouteComparison';
 import { resolveRoute, getRouteDestinationContext } from '../utils/routeSelection';
+import { summarizeSafetyFacilities, toSafetyFacilityItems, type SafetyFacilityType } from '../utils/safetyFacilities';
 import { useApp } from '../store/appStore';
 import { useEffect, useState, type ReactNode } from 'react';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
@@ -76,6 +78,14 @@ export function summarizeRouteMarkers(markers: RouteMapPoi[]): FacilitySummary {
 export function getVisibleRouteMarkers(hasOrigin: boolean, markers: RouteMapPoi[]): RouteMapPoi[] {
   return hasOrigin ? markers : markers.filter((m) => m.type === 'end');
 }
+
+// 지도 POI 타입과 동일한 아이콘/색으로 요약을 표시(MapMock 과 시각 일치).
+const FACILITY_ICON: Record<SafetyFacilityType, { Icon: typeof Video; color: string }> = {
+  cctv: { Icon: Video, color: 'text-emerald-400' },
+  bell: { Icon: Bell, color: 'text-red-400' },
+  store: { Icon: Store, color: 'text-blue-400' },
+  police: { Icon: Shield, color: 'text-blue-400' },
+};
 
 export function RouteDetail() {
   const { id } = useParams();
@@ -163,6 +173,9 @@ export function RouteDetail() {
   const detailPois = routeMarkers ? getVisibleRouteMarkers(hasOrigin, routeMarkers) : getVisibleRouteDetailPois(hasOrigin, facilities);
   const safehouseCount = routeMarkers ? (facilitySummary.safehouse ?? 0) : getSafehouseCount(facilities, detailPois);
 
+  // 지도에 표시된 안심 시설 POI를 그대로 집계해 요약(보이는 것과 항상 일치).
+  const facilityItems = toSafetyFacilityItems(summarizeSafetyFacilities(detailPois));
+
   return (
     <div className="flex flex-col h-full bg-slate-800 relative">
       <header className="absolute top-0 inset-x-0 z-30 px-4 pt-8 mt-4">
@@ -206,7 +219,7 @@ export function RouteDetail() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-2 mb-6">
             {route.tags.map((tag, i) => (
               <Tag key={i} variant={tag.variant} icon={getRouteTagIcon(tag)}>
                 {tag.text}

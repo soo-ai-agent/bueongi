@@ -71,9 +71,9 @@ export function MyPage() {
           <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden shadow-sm">
             <div className="flex items-center gap-4 p-5">
               <div className="p-2.5 bg-red-500/20 rounded-full text-red-400 border border-red-500/30"><Phone className="w-5 h-5" /></div>
-              <div className="flex-1">
-                <div className="text-slate-50 font-bold">{primaryContact?.name ?? '미등록'}</div>
-                <div className="text-slate-300 text-sm mt-0.5">{primaryContact?.phone ?? '긴급 연락처를 등록해 주세요'}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-slate-50 font-bold truncate">{primaryContact?.name ?? '미등록'}</div>
+                <div className="text-slate-300 text-sm mt-0.5 truncate">{primaryContact?.phone ?? '긴급 연락처를 등록해 주세요'}</div>
               </div>
               <button
                 onClick={() => navigate('/emergency-contacts')}
