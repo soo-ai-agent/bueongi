@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatScoreBasis, formatProvenanceNote, SCORE_CAUTION_NOTE } from './dataProvenance';
+import { formatScoreBasis, scoreBasisItems, formatProvenanceNote, formatDataFooter, SCORE_CAUTION_NOTE } from './dataProvenance';
 import type { RouteScoreBreakdown } from './routeCompare';
 
 const base: RouteScoreBreakdown = {
@@ -12,19 +12,39 @@ const base: RouteScoreBreakdown = {
   safePathOverlap: 0,
 };
 
-describe('formatScoreBasis (P0-4 점수 근거)', () => {
-  it('값이 있는 항목만 " · "로 잇는다(밀도는 소수 1자리)', () => {
-    const s = formatScoreBasis({ ...base, cctvDensity: 8.25, bellDensity: 1, safehouseCount: 2, safePathOverlap: 0.6 });
-    expect(s).toBe('CCTV 8.3/km · 비상벨 1/km · 지킴이집 2 · 안심귀갓길 60% 겹침');
+describe('scoreBasisItems/formatScoreBasis (P0-4 점수 근거)', () => {
+  it('값이 있는 항목만 칩으로 만든다(밀도는 소수 1자리)', () => {
+    const items = scoreBasisItems({ ...base, cctvDensity: 8.25, bellDensity: 1, safehouseCount: 2, safePathOverlap: 0.6 });
+    expect(items).toEqual(['CCTV 8.3/km', '비상벨 1/km', '지킴이집 2', '안심귀갓길 60%']);
   });
 
-  it('조명·지구대도 포함한다', () => {
+  it('조명·지구대도 포함하고 한 줄 조합도 제공한다', () => {
     const s = formatScoreBasis({ ...base, lampDensity: 12, policeCount: 1 });
     expect(s).toBe('조명 12/km · 지구대 1');
   });
 
-  it('전부 0이면 빈 문자열 대신 "없음"을 정직하게 알린다', () => {
-    expect(formatScoreBasis(base)).toBe('경로 30m 내 집계된 안심시설 없음');
+  it('전부 0이면 빈 목록 대신 "없음"을 정직하게 알린다', () => {
+    expect(scoreBasisItems(base)).toEqual(['근처 안심시설 없음']);
+  });
+});
+
+describe('formatDataFooter (화면 하단 데이터 안내 1회 표기)', () => {
+  it('실데이터면 기준일·출처 + 과신 방지 한 문장', () => {
+    expect(formatDataFooter({ kind: 'live', basedOn: '2026.06', origin: '공공데이터포털' })).toBe(
+      '기준일 2026.06 · 공공데이터포털 기준이며, 실제 현장과 다를 수 있어요.',
+    );
+  });
+
+  it('기준일 미상이면 출처부터 시작한다', () => {
+    expect(formatDataFooter({ kind: 'live', origin: '공공데이터포털' })).toBe(
+      '공공데이터포털 기준이며, 실제 현장과 다를 수 있어요.',
+    );
+  });
+
+  it('폴백(provenance 없음)이면 예시 데이터임과 자동 전환을 알린다', () => {
+    const s = formatDataFooter(null);
+    expect(s).toContain('예시 데이터');
+    expect(s).toContain('자동 전환');
   });
 });
 

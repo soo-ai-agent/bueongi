@@ -14,7 +14,7 @@ import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../ut
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi, type FacilitySummary } from '../utils/routeFacilities';
 import { getApiErrorUserMessage, reportApiError } from '../utils/apiError';
 import { SourceBadge } from '../components/ui/SourceBadge';
-import { formatScoreBasis, formatProvenanceNote, SCORE_CAUTION_NOTE, FALLBACK_NOTICE } from '../utils/dataProvenance';
+import { formatProvenanceNote, formatDataFooter } from '../utils/dataProvenance';
 
 // x/y는 MapMock 폴백용, lat/lng는 실지도 투영용(API POI에만 존재).
 type RouteDetailPoi = Pick<FacilityPoi, 'type' | 'x' | 'y'> & Partial<Pick<FacilityPoi, 'lat' | 'lng' | 'name'>>;
@@ -262,19 +262,18 @@ export function RouteDetail() {
               )}
               {facilitiesError && <p className="text-amber-300 text-sm leading-relaxed mt-3">{facilitiesError}</p>}
 
-              {/* P0-4 점수 근거 + 과신 방지 / P0-3 기준일·출처. 실데이터 경로에만 수치 근거가 있다. */}
-              {routeBreakdown ? (
-                <p data-testid="detail-score-basis" className="mt-3 text-xs text-slate-400 leading-relaxed border-t border-slate-600 pt-3">
-                  <span className="text-slate-300">근거: {formatScoreBasis(routeBreakdown)}</span>
-                  <br />
-                  {SCORE_CAUTION_NOTE}
-                  {routeProvenance && <> · {formatProvenanceNote(routeProvenance)}</>}
-                </p>
-              ) : (
-                <p data-testid="detail-fallback-notice" className="mt-3 text-xs text-amber-300/80 leading-relaxed border-t border-slate-600 pt-3">
-                  {FALLBACK_NOTICE}
+              {/* 안심귀갓길 겹침은 위 시설 개수 그리드에 없는 정보라 의미 있을 때만 한 줄 안내. */}
+              {routeBreakdown && routeBreakdown.safePathOverlap > 0 && (
+                <p className="mt-3 flex items-start gap-1.5 text-slate-300 text-xs leading-relaxed">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                  이 경로의 {Math.round(routeBreakdown.safePathOverlap * 100)}%가 지자체 안심귀갓길과 겹쳐요.
                 </p>
               )}
+
+              {/* 데이터 안내(P0-1·3·4)는 카드 하단 1회 — 기준일·출처·과신 방지 또는 예시 안내. */}
+              <p data-testid="detail-data-footer" className="mt-3 text-[11px] text-slate-500 leading-relaxed border-t border-slate-600 pt-3">
+                {formatDataFooter(routeProvenance ?? null)}
+              </p>
             </div>
           )}
 

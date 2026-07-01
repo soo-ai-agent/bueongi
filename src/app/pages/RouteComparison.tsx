@@ -9,7 +9,7 @@ import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { type RouteOption, type RouteOptionTag } from '../utils/routeCompare';
 import { SourceBadge } from '../components/ui/SourceBadge';
-import { formatScoreBasis, formatProvenanceNote, SCORE_CAUTION_NOTE, FALLBACK_NOTICE } from '../utils/dataProvenance';
+import { scoreBasisItems, formatDataFooter } from '../utils/dataProvenance';
 import { loadComparisonRouteResult } from '../utils/routeSource';
 import type { SafetyPreference } from '../utils/safeCompare';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi } from '../utils/routeFacilities';
@@ -379,18 +379,26 @@ export function RouteComparison() {
                   <SourceBadge variant={'provenance' in route && route.provenance ? 'live' : 'fallback'} className="mt-0.5 shrink-0" />
                 </div>
 
-                <p className="text-slate-300 text-sm mb-2 leading-relaxed">{route.desc}</p>
-
-                {/* P0-4 점수 근거 + 과신 방지 / P0-3 기준일·출처 — 실데이터 경로에만 수치 근거가 있다. */}
+                {/* 실데이터 경로는 점수를 크게, 근거는 칩으로 스캔 가능하게. 폴백은 기존 설명 문구 유지. */}
                 {'breakdown' in route && route.breakdown ? (
-                  <div data-testid="score-basis" className="mb-4 text-xs text-slate-400 leading-relaxed">
-                    <span className="text-slate-300">{formatScoreBasis(route.breakdown)}</span>
-                    <br />
-                    {SCORE_CAUTION_NOTE}
-                    {'provenance' in route && route.provenance && <> · {formatProvenanceNote(route.provenance)}</>}
-                  </div>
+                  <>
+                    {typeof route.score === 'number' && (
+                      <p className="text-sm mb-2.5">
+                        <span className="text-slate-400">안전 점수</span>{' '}
+                        <span className="text-emerald-300 font-bold text-base">{route.score}점</span>
+                      </p>
+                    )}
+                    {/* P0-4 점수 근거 칩 — 어떤 시설이 얼마나 있어서 이 점수인지 한눈에. */}
+                    <div data-testid="score-basis" className="mb-4 flex flex-wrap gap-1.5">
+                      {scoreBasisItems(route.breakdown).map((item) => (
+                        <span key={item} className="rounded-lg bg-slate-600/50 px-2 py-1 text-[11px] font-medium text-slate-200">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </>
                 ) : (
-                  <p data-testid="fallback-notice" className="mb-4 text-xs text-amber-300/80 leading-relaxed">{FALLBACK_NOTICE}</p>
+                  <p className="text-slate-300 text-sm mb-4 leading-relaxed">{route.desc}</p>
                 )}
 
                 <div className="flex flex-wrap gap-2">
@@ -417,6 +425,16 @@ export function RouteComparison() {
               </div>
             </div>
           ))}
+          {/* 데이터 안내(P0-1·3·4)는 카드마다 반복하지 않고 목록 아래 1회만 — 기준일·출처·과신 방지 또는 예시 안내. */}
+          {hasOrigin && displayRoutes.length > 0 && (
+            <p data-testid="data-footer" className="px-2 pt-1 text-[11px] text-slate-500 leading-relaxed">
+              {formatDataFooter(
+                displayRoutes
+                  .map((r) => ('provenance' in r ? r.provenance : undefined))
+                  .find((p) => p != null) ?? null,
+              )}
+            </p>
+          )}
         </div>
       </div>
     </div>
