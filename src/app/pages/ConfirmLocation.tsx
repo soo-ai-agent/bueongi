@@ -58,7 +58,7 @@ export function ConfirmLocation() {
           <div className="w-12 h-1.5 bg-slate-600 rounded-full" />
         </div>
 
-        <h2 className="text-xl font-bold text-slate-50 mb-4">이 목적지가 맞나요?</h2>
+        <h2 className="text-2xl font-bold text-slate-50 mb-4">이 목적지가 맞나요?</h2>
         <div className="flex items-center gap-4 bg-slate-700 p-4 rounded-3xl border border-slate-600 mb-8 shadow-sm">
           <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center text-emerald-400 border border-slate-600">
             <MapPin className="w-6 h-6" />

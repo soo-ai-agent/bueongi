@@ -23,20 +23,20 @@ export function MyPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-8 pb-20 space-y-10">
-        {/* User Info Mock */}
+        {/* 프로필 — 계정/로그인이 없는 앱이라 특정 이름을 지어내지 않고 중립 인사로 둔다. */}
         <div className="flex items-center gap-5 mb-2">
           <div className="w-16 h-16 bg-slate-700 border border-slate-600 shadow-sm rounded-full flex items-center justify-center text-3xl">
-            👋
+            🦉
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-50">김안심 님</h2>
-            <p className="text-slate-300 font-medium mt-1">안전한 귀가를 응원합니다</p>
+            <h2 className="text-2xl font-bold text-slate-50">안심 귀가 중</h2>
+            <p className="text-slate-300 font-medium mt-1">오늘도 안전하게 모실게요</p>
           </div>
         </div>
 
         {/* Places */}
         <section>
-          <h3 className="text-slate-200 font-bold mb-3 px-1">자주 가는 장소</h3>
+          <h3 className="text-base font-bold text-slate-100 mb-3 px-1">자주 가는 장소</h3>
           <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
             {places.map((item, i) => (
               <div
@@ -67,7 +67,7 @@ export function MyPage() {
 
         {/* Emergency Contacts */}
         <section>
-          <h3 className="text-slate-200 font-bold mb-3 px-1">긴급 연락처</h3>
+          <h3 className="text-base font-bold text-slate-100 mb-3 px-1">긴급 연락처</h3>
           <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden shadow-sm">
             <div className="flex items-center gap-4 p-5">
               <div className="p-2.5 bg-red-500/20 rounded-full text-red-400 border border-red-500/30"><Phone className="w-5 h-5" /></div>
@@ -87,7 +87,7 @@ export function MyPage() {
 
         {/* Settings */}
         <section>
-          <h3 className="text-slate-200 font-bold mb-3 px-1">설정 및 안내</h3>
+          <h3 className="text-base font-bold text-slate-100 mb-3 px-1">설정 및 안내</h3>
           <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
             <div className="flex items-center gap-3 p-5">
               <div className="p-2.5 bg-slate-800 rounded-full text-slate-300 shrink-0"><Bell className="w-5 h-5" /></div>

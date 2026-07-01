@@ -281,11 +281,11 @@ export function RouteDetail() {
             </Button>
             
             <div className="flex gap-3 mt-2">
-              <Button variant="secondary" className="flex-1 rounded-2xl bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/share')}>
-                보호자에게 공유
+              <Button variant="secondary" className="flex-1 rounded-2xl px-4 whitespace-nowrap bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/share')}>
+                보호자 공유
               </Button>
-              <Button variant="outline" className="flex-1 flex gap-2 rounded-2xl" onClick={() => window.open('https://www.sexoffender.go.kr', '_blank')}>
-                <ShieldAlert className="w-4 h-4 text-slate-300" />
+              <Button variant="outline" className="flex-1 flex gap-1.5 rounded-2xl px-4 whitespace-nowrap" onClick={() => window.open('https://www.sexoffender.go.kr', '_blank')}>
+                <ShieldAlert className="w-4 h-4 text-slate-300 shrink-0" />
                 알림e 확인
               </Button>
             </div>

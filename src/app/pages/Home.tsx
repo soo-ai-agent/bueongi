@@ -69,7 +69,7 @@ export function Home() {
             </div>
             <p className="text-blue-300 font-bold text-sm tracking-wide">프로젝트 부엉이</p>
           </div>
-          <h1 className="text-[28px] font-bold text-slate-50 tracking-tight leading-tight">오늘도 안전하게<br />모실게요.</h1>
+          <h1 className="text-2xl font-bold text-slate-50 tracking-tight leading-tight">오늘도 안전하게<br />모실게요.</h1>
         </div>
         <button onClick={() => navigate('/mypage')} className="w-12 h-12 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-600 transition-colors shadow-sm">
           <UserCircle className="w-7 h-7" />
@@ -109,7 +109,7 @@ export function Home() {
 
         {/* Recent */}
         <div>
-          <h3 className="text-slate-300 text-sm font-medium mb-3 flex items-center gap-2 px-1">
+          <h3 className="text-base font-bold text-slate-100 mb-3 flex items-center gap-2 px-1">
             <Clock className="w-4 h-4" />
             최근 목적지
           </h3>

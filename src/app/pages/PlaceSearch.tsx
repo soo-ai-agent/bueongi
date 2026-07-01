@@ -151,7 +151,7 @@ export function PlaceSearch() {
           )
         ) : (
           <div className="p-6">
-            <h3 className="text-slate-300 text-sm font-bold mb-4 flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-100 mb-4 flex items-center gap-2">
               <Clock className="w-4 h-4" />
               최근 검색
             </h3>

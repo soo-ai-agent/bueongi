@@ -167,7 +167,7 @@ export function ShareStatus() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <h3 className="text-slate-300 font-medium px-2 mb-1">공유 방법 선택</h3>
+          <h3 className="text-base font-bold text-slate-100 px-2 mb-1">공유 방법 선택</h3>
 
           <button
             data-testid="share-kakao-btn"

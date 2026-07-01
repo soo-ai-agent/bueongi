@@ -280,7 +280,7 @@ export function RouteComparison() {
           <div className="w-12 h-1.5 bg-slate-600 rounded-full" />
         </div>
         <div className="px-6 pb-3 pt-2">
-          <h2 className="text-xl font-bold text-slate-50">경로 선택</h2>
+          <h2 className="text-2xl font-bold text-slate-50">경로 선택</h2>
           {hasOrigin && (
             <div
               role="radiogroup"
