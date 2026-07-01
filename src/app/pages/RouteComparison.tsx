@@ -8,6 +8,8 @@ import { useApp } from '../store/appStore';
 import { getRouteDestinationContext } from '../utils/routeSelection';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { type RouteOption, type RouteOptionTag } from '../utils/routeCompare';
+import { SourceBadge } from '../components/ui/SourceBadge';
+import { formatScoreBasis, formatProvenanceNote, SCORE_CAUTION_NOTE, FALLBACK_NOTICE } from '../utils/dataProvenance';
 import { loadComparisonRouteResult } from '../utils/routeSource';
 import type { SafetyPreference } from '../utils/safeCompare';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi } from '../utils/routeFacilities';
@@ -362,7 +364,7 @@ export function RouteComparison() {
                 onPointerEnter={() => setActivePreviewRouteType(route.type)}
                 className="block w-full rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700"
               >
-                <div className="flex justify-between items-start mb-2.5">
+                <div className="flex justify-between items-start mb-2.5 gap-2">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <h3 className={`font-bold text-lg ${route.type === previewRouteType ? 'text-blue-300' : 'text-slate-100'}`}>
                       {route.name}
@@ -373,9 +375,23 @@ export function RouteComparison() {
                       <span>{route.dist}</span>
                     </div>
                   </div>
+                  {/* P0-1 출처 배지: 실 공공데이터 산출(provenance 有)만 '실데이터', 폴백(키 미설정·쿼터·실패)은 '예시 데이터'. */}
+                  <SourceBadge variant={'provenance' in route && route.provenance ? 'live' : 'fallback'} className="mt-0.5 shrink-0" />
                 </div>
 
-                <p className="text-slate-300 text-sm mb-4 leading-relaxed">{route.desc}</p>
+                <p className="text-slate-300 text-sm mb-2 leading-relaxed">{route.desc}</p>
+
+                {/* P0-4 점수 근거 + 과신 방지 / P0-3 기준일·출처 — 실데이터 경로에만 수치 근거가 있다. */}
+                {'breakdown' in route && route.breakdown ? (
+                  <div data-testid="score-basis" className="mb-4 text-xs text-slate-400 leading-relaxed">
+                    <span className="text-slate-300">{formatScoreBasis(route.breakdown)}</span>
+                    <br />
+                    {SCORE_CAUTION_NOTE}
+                    {'provenance' in route && route.provenance && <> · {formatProvenanceNote(route.provenance)}</>}
+                  </div>
+                ) : (
+                  <p data-testid="fallback-notice" className="mb-4 text-xs text-amber-300/80 leading-relaxed">{FALLBACK_NOTICE}</p>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                   {route.tags.map((tag, i) => (

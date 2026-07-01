@@ -44,6 +44,8 @@ interface RouteMapProps {
   livePosition?: LatLng | null;
   /** 지도 컨트롤(현 위치 따라가기/재중심, 방향 회전 토글) 노출 여부. 길안내 화면에서만 켠다. */
   showControls?: boolean;
+  /** 마커 정보 카드 하단 데이터 출처/기준일 표기(P0-3). 예: "기준일 2026.06 · 공공데이터포털". 없으면 생략. */
+  sourceNote?: string | null;
 }
 
 const ROUTE_COLORS: Record<NonNullable<RouteMapProps['routeType']>, string> = {
@@ -189,6 +191,7 @@ export function RouteMap({
   path,
   livePosition = null,
   showControls = false,
+  sourceNote = null,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<KakaoMap | null>(null);
@@ -585,6 +588,10 @@ export function RouteMap({
                     </div>
                   )}
                 </>
+              )}
+              {/* P0-3 데이터 기준일·출처 — 이 마커가 언제 기준의 공공데이터인지 표기. */}
+              {sourceNote && (
+                <div data-testid="poi-source-note" className="text-slate-500 text-[10px] mt-2">{sourceNote}</div>
               )}
             </div>
             <button

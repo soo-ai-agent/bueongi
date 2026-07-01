@@ -186,3 +186,59 @@ describe('fetchRouteOptions', () => {
     );
   });
 });
+
+describe('toRouteOption breakdown/provenance 파싱 (P0)', () => {
+  const baseRoute = {
+    id: 'tmap-0-0',
+    name: '안심 경로',
+    time: '24분',
+    dist: '1.2km',
+    desc: '안전 점수 88점',
+    tags: [],
+    type: 'safe',
+    score: 88,
+  };
+
+  it('유효한 breakdown·provenance를 채운다', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify([
+          {
+            ...baseRoute,
+            breakdown: {
+              routeKm: 1.2, cctvDensity: 8.2, lampDensity: 12, bellDensity: 1.1,
+              safehouseCount: 1, policeCount: 1, safePathOverlap: 0.6,
+            },
+            provenance: { kind: 'live', basedOn: '2026.06', origin: '공공데이터포털' },
+          },
+        ]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const [route] = await fetchRouteOptions(destination, origin, { fetchImpl });
+    expect(route.breakdown).toEqual({
+      routeKm: 1.2, cctvDensity: 8.2, lampDensity: 12, bellDensity: 1.1,
+      safehouseCount: 1, policeCount: 1, safePathOverlap: 0.6,
+    });
+    expect(route.provenance).toEqual({ kind: 'live', basedOn: '2026.06', origin: '공공데이터포털' });
+  });
+
+  it('손상된 breakdown(비유한 수)·provenance(필수 누락)는 조용히 생략한다(경로 자체는 유지)', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify([
+          {
+            ...baseRoute,
+            breakdown: { routeKm: 'bad', cctvDensity: 1, lampDensity: 1, bellDensity: 1, safehouseCount: 0, policeCount: 0, safePathOverlap: 0 },
+            provenance: { basedOn: '2026.06' },
+          },
+        ]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const [route] = await fetchRouteOptions(destination, origin, { fetchImpl });
+    expect(route.breakdown).toBeUndefined();
+    expect(route.provenance).toBeUndefined();
+    expect(route.score).toBe(88);
+  });
+});

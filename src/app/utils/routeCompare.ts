@@ -23,6 +23,31 @@ export interface RouteOptionTag {
   variant: RouteTagVariant;
 }
 
+/** 안전 점수 근거(P0-4). 백엔드 ScoreBreakdown 동형 — "왜 이 점수인가"를 사용자에게 보여준다. */
+export interface RouteScoreBreakdown {
+  routeKm: number;
+  cctvDensity: number;
+  lampDensity: number;
+  bellDensity: number;
+  safehouseCount: number;
+  policeCount: number;
+  /** 안심귀갓길 겹침 비율(0~1). */
+  safePathOverlap: number;
+}
+
+/**
+ * 데이터 출처/기준일(P0-1·P0-3). 실데이터(safe-compare) 응답에만 존재 —
+ * 부재(=폴백/예시 경로)를 프론트가 '예시 데이터' 배지로 구분한다.
+ */
+export interface RouteProvenance {
+  /** 'live' — 실 공공데이터 기반. */
+  kind: string;
+  /** 시설 데이터 기준일 "YYYY.MM". 미상이면 없음. */
+  basedOn?: string;
+  /** 원천 표기(예: "공공데이터포털·서울 열린데이터광장"). */
+  origin: string;
+}
+
 export interface RouteOption {
   id: string;
   name: string;
@@ -39,6 +64,10 @@ export interface RouteOption {
   score?: number;
   /** 회랑 내 안심 시설 + 출발/도착 마커. 안심 라우팅 응답에만 존재. */
   markers?: RouteMapPoi[];
+  /** 안전 점수 근거(P0-4). 안심 라우팅 응답에만 존재. */
+  breakdown?: RouteScoreBreakdown;
+  /** 데이터 출처/기준일(P0-1·P0-3). 안심 라우팅(실데이터) 응답에만 존재. */
+  provenance?: RouteProvenance;
 }
 
 export interface RouteCompareClientOptions {
@@ -178,6 +207,36 @@ function toRouteMarkers(value: unknown): RouteMapPoi[] | undefined {
   return markers.length > 0 ? markers : undefined;
 }
 
+/** 점수 근거(breakdown) 파싱 — 숫자 필드가 모두 유한할 때만 채운다(부분 손상 응답은 근거 표기만 생략). */
+function toScoreBreakdown(value: unknown): RouteScoreBreakdown | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const b = value as Partial<Record<keyof RouteScoreBreakdown, unknown>>;
+  const nums = [b.routeKm, b.cctvDensity, b.lampDensity, b.bellDensity, b.safePathOverlap];
+  if (!nums.every((v) => typeof v === 'number' && Number.isFinite(v))) return undefined;
+  if (typeof b.safehouseCount !== 'number' || typeof b.policeCount !== 'number') return undefined;
+  return {
+    routeKm: b.routeKm as number,
+    cctvDensity: b.cctvDensity as number,
+    lampDensity: b.lampDensity as number,
+    bellDensity: b.bellDensity as number,
+    safehouseCount: b.safehouseCount,
+    policeCount: b.policeCount,
+    safePathOverlap: b.safePathOverlap as number,
+  };
+}
+
+/** 출처(provenance) 파싱 — kind/origin 필수, basedOn 선택. */
+function toProvenance(value: unknown): RouteProvenance | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const p = value as Partial<Record<keyof RouteProvenance, unknown>>;
+  if (typeof p.kind !== 'string' || typeof p.origin !== 'string') return undefined;
+  return {
+    kind: p.kind,
+    origin: p.origin,
+    ...(typeof p.basedOn === 'string' && p.basedOn ? { basedOn: p.basedOn } : {}),
+  };
+}
+
 /**
  * 백엔드 RouteOption 파싱. 필수 UI 필드(id/name/time/dist/desc/tags/type)를 검증하고,
  * 안심 라우팅 응답에만 있는 path/steps/score/markers는 유효할 때만 선택적으로 채운다.
@@ -215,6 +274,10 @@ export function toRouteOption(value: unknown): RouteOption | null {
   if (isFiniteInRange(route.score, 0, 100)) option.score = route.score;
   const markers = toRouteMarkers(route.markers);
   if (markers) option.markers = markers;
+  const breakdown = toScoreBreakdown(route.breakdown);
+  if (breakdown) option.breakdown = breakdown;
+  const provenance = toProvenance(route.provenance);
+  if (provenance) option.provenance = provenance;
 
   return option;
 }

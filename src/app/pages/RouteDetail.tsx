@@ -13,6 +13,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { getBrowserCurrentLocation, getCurrentLocationErrorMessage } from '../utils/currentLocation';
 import { fetchRouteFacilities, type FacilitiesResponse, type FacilityPoi, type FacilitySummary } from '../utils/routeFacilities';
 import { getApiErrorUserMessage, reportApiError } from '../utils/apiError';
+import { SourceBadge } from '../components/ui/SourceBadge';
+import { formatScoreBasis, formatProvenanceNote, SCORE_CAUTION_NOTE, FALLBACK_NOTICE } from '../utils/dataProvenance';
 
 // x/y는 MapMock 폴백용, lat/lng는 실지도 투영용(API POI에만 존재).
 type RouteDetailPoi = Pick<FacilityPoi, 'type' | 'x' | 'y'> & Partial<Pick<FacilityPoi, 'lat' | 'lng' | 'name'>>;
@@ -104,6 +106,9 @@ export function RouteDetail() {
   const hasOrigin = routeOrigin !== null;
   // 백엔드 안심 라우팅이 준 거점 마커. 있으면 facilities preview 호출을 생략하고 이 마커를 쓴다.
   const routeMarkers = 'markers' in route && route.markers && route.markers.length > 0 ? route.markers : undefined;
+  // P0-1·P0-3·P0-4: 실데이터 산출에만 있는 점수 근거/출처 — 부재는 폴백(예시 데이터) 표기로 이어진다.
+  const routeBreakdown = 'breakdown' in route ? route.breakdown : undefined;
+  const routeProvenance = 'provenance' in route ? route.provenance : undefined;
 
   useEffect(() => {
     // 백엔드 markers가 있으면 레거시 facilities preview 호출을 생략한다(점수/마커 일관성).
@@ -194,6 +199,7 @@ export function RouteDetail() {
           pois={detailPois}
           zoom={1.5}
           path={'path' in route ? route.path : undefined}
+          sourceNote={routeProvenance ? formatProvenanceNote(routeProvenance) : '예시 데이터 표시 중'}
         />
       </div>
 
@@ -231,8 +237,12 @@ export function RouteDetail() {
           {hasOrigin && (
             <div className="rounded-2xl border border-slate-600 bg-slate-700 px-4 py-4 mb-5">
               <div className="flex items-center justify-between gap-3 mb-3">
-                <p className="text-slate-50 font-bold">경로 주변 안심 시설</p>
-                <span className="text-slate-400 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-slate-50 font-bold">경로 주변 안심 시설</p>
+                  {/* P0-1 출처 배지: 실데이터 산출(provenance 有) vs 폴백(예시) 구분. */}
+                  <SourceBadge variant={routeProvenance ? 'live' : 'fallback'} />
+                </div>
+                <span className="text-slate-400 text-sm shrink-0">
                   {facilitiesLoading ? '확인 중' : `총 ${facilitySummary.total}개`}
                 </span>
               </div>
@@ -251,6 +261,20 @@ export function RouteDetail() {
                 </p>
               )}
               {facilitiesError && <p className="text-amber-300 text-sm leading-relaxed mt-3">{facilitiesError}</p>}
+
+              {/* P0-4 점수 근거 + 과신 방지 / P0-3 기준일·출처. 실데이터 경로에만 수치 근거가 있다. */}
+              {routeBreakdown ? (
+                <p data-testid="detail-score-basis" className="mt-3 text-xs text-slate-400 leading-relaxed border-t border-slate-600 pt-3">
+                  <span className="text-slate-300">근거: {formatScoreBasis(routeBreakdown)}</span>
+                  <br />
+                  {SCORE_CAUTION_NOTE}
+                  {routeProvenance && <> · {formatProvenanceNote(routeProvenance)}</>}
+                </p>
+              ) : (
+                <p data-testid="detail-fallback-notice" className="mt-3 text-xs text-amber-300/80 leading-relaxed border-t border-slate-600 pt-3">
+                  {FALLBACK_NOTICE}
+                </p>
+              )}
             </div>
           )}
 

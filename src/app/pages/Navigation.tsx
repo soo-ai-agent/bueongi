@@ -15,6 +15,7 @@ import { useApp } from '../store/appStore';
 import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage, composeRunningLateShareMessage } from '../utils/share';
 import { expectedArrivalAt, msUntilCheckIn, CHECKIN_SNOOZE_MS } from '../utils/arrivalCheckIn';
 import { useScreenWakeLock } from '../hooks/useWakeLock';
+import { formatProvenanceNote } from '../utils/dataProvenance';
 import { endShare, getShareWatching, isShareApiConfigured } from '../utils/shareSession';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
@@ -399,6 +400,11 @@ export function NavigationScreen() {
           livePosition={livePosition}
           path={routePath}
           pois={facilityMarkers}
+          sourceNote={
+            'provenance' in routeOption && routeOption.provenance
+              ? formatProvenanceNote(routeOption.provenance)
+              : '예시 데이터 표시 중'
+          }
         />
       </div>
 
