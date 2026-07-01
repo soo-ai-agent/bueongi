@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button';
 import {
   Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
   ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
-  Clock, Timer,
+  Clock, Timer, Sun,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
 import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage, composeRunningLateShareMessage } from '../utils/share';
 import { expectedArrivalAt, msUntilCheckIn, CHECKIN_SNOOZE_MS } from '../utils/arrivalCheckIn';
+import { useScreenWakeLock } from '../hooks/useWakeLock';
 import { endShare, getShareWatching, isShareApiConfigured } from '../utils/shareSession';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
@@ -182,6 +183,26 @@ export function NavigationScreen() {
     const id = setTimeout(() => setCheckInOpen(true), delay);
     return () => clearTimeout(id);
   }, [arrived, canRequestRoute, navStartedAt, initialEtaMin, checkInExtraMs]);
+
+  // 백그라운드 길안내: 안내 중에는 화면이 꺼지지 않게 유지해 GPS 추적·안내가 끊기지 않게 한다.
+  // (웹 앱은 화면이 꺼지거나 탭이 완전히 닫히면 실행이 멈춘다 — 화면을 켜 두는 것이 웹 스택의 표준 대응.)
+  const wakeLock = useScreenWakeLock(canRequestRoute && !arrived);
+
+  // 백그라운드에서 포그라운드로 복귀 시(숨김 동안 watchPosition이 잠시 멈췄을 수 있음) 현재 위치를
+  // 한 번 재취득해 지도 마커를 즉시 스냅한다(복귀 직후 위치가 뒤처져 보이는 것을 방지).
+  useEffect(() => {
+    if (!canRequestRoute || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLivePosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 0 },
+      );
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [canRequestRoute]);
 
   const currentStep: NavStep | null = steps[currentStepIdx] ?? null;
   const guide = currentStep ? turnGuide(currentStep.turnType) : null;
@@ -394,10 +415,18 @@ export function NavigationScreen() {
       {/* Bottom Status Bar */}
       <div className="absolute bottom-0 inset-x-0 bg-slate-700 rounded-t-[32px] p-6 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] border-t border-slate-600 z-20">
         {/* 남은 시간·거리(핵심 정보만 유지) */}
-        <div className="flex items-baseline gap-2 mb-5">
+        <div className="flex items-baseline gap-2 mb-3">
           <span className="text-4xl font-bold text-slate-50">{minutesLeft}<span className="text-2xl text-slate-400">분</span></span>
           <span className="text-slate-300 text-lg font-medium">남음 ({distanceText})</span>
         </div>
+
+        {/* 백그라운드 안내 인디케이터 — 화면 꺼짐 방지가 켜져 있을 때만 노출(왜 화면이 안 꺼지는지 설명). */}
+        {wakeLock.supported && wakeLock.active && (
+          <div data-testid="nav-wakelock-indicator" className="flex items-center gap-1.5 mb-4 text-emerald-300/90 text-xs font-medium">
+            <Sun className="w-3.5 h-3.5 shrink-0" />
+            화면을 켠 채로 안내 중 · 다른 화면을 봐도 안내가 이어져요
+          </div>
+        )}
 
         <div className="flex gap-3">
           <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-2xl px-6" onClick={() => navigate('/share')}>

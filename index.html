@@ -9,6 +9,13 @@
       <title>안심귀가 앱 MVP 기획</title>
       <meta name="description" content="This app guides users on safer routes home at night, prioritizing well-lit paths and nearby safety features, ensuring peace of mind for solo travelers." />
       <meta name="robots" content="noindex, nofollow" />
+      <!-- 설치형 PWA(홈 화면 추가) — standalone 실행 시 백그라운드 지속성이 좋아지고, 길안내 중 화면 꺼짐 방지와 함께 동작한다. -->
+      <link rel="manifest" href="/manifest.webmanifest" />
+      <meta name="theme-color" content="#0f172a" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content="부엉이" />
+      <link rel="apple-touch-icon" href="/favicon.svg" />
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
       
     </head>

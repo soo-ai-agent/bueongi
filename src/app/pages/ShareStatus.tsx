@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin, Eye } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Send, Share2, MapPin, Eye, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { isUserCancelledShare, composeReturnShareMessage } from '../utils/share'
 import { createShare, isShareApiConfigured } from '../utils/shareSession';
 import { startShareLocationLoop } from '../utils/shareLocationLoop';
 import { getBrowserCurrentLocation } from '../utils/currentLocation';
+import { useScreenWakeLock } from '../hooks/useWakeLock';
 
 // 공유 상태: 수신 여부가 아닌 '사용자가 취한 행동'만 정직하게 표시(거짓 "전달됨" 금지).
 type ShareAction = 'idle' | 'shared' | 'copied';
@@ -21,6 +22,8 @@ export function ShareStatus() {
   const { destination, activeShare, setActiveShare } = useApp();
   const destName = destination?.name ?? '목적지';
   const [shareStatus, setShareStatus] = useState<ShareAction>('idle');
+  // 공유 중에는 화면이 꺼지지 않게 유지해, 위치 전송 루프가 백그라운드로 멈추지 않도록 한다.
+  const wakeLock = useScreenWakeLock(isShareApiConfigured());
 
   // 위치 공유 서버가 설정되면 백엔드가 준 보호자 URL(res.shareUrl = 독립 HTML 지도 페이지)을 공유한다.
   // 미설정/생성 실패면 null로 둬, 토큰 없는 `/share`(발신자 본인 화면) 링크를 보호자에게 보내지 않는다.
@@ -154,6 +157,13 @@ export function ShareStatus() {
               </span>
             </div>
           </div>
+
+          {wakeLock.supported && wakeLock.active && (
+            <div className="mt-5 pt-5 border-t border-slate-600 flex items-center gap-1.5 text-emerald-300/90 text-xs font-medium">
+              <Sun className="w-3.5 h-3.5 shrink-0" />
+              공유하는 동안 화면이 꺼지지 않아 위치가 계속 전달돼요
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
