@@ -87,7 +87,7 @@ export function PlaceSearch() {
         </button>
         <form
           onSubmit={handleSubmit}
-          className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-2.5 rounded-[20px] border border-slate-600 focus-within:border-blue-400 transition-colors"
+          className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-2.5 rounded-2xl border border-slate-600 focus-within:border-blue-400 transition-colors"
         >
           <input
             data-testid="place-search-input"
@@ -113,7 +113,7 @@ export function PlaceSearch() {
 
       <div className="flex-1 overflow-y-auto">
         {saveAs && (
-          <div className="mx-4 mt-4 bg-blue-500/10 border border-blue-500/20 px-4 py-3 rounded-[16px] flex items-center gap-2.5">
+          <div className="mx-4 mt-4 bg-blue-500/10 border border-blue-500/20 px-4 py-3 rounded-2xl flex items-center gap-2.5">
             <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
             <p className="text-slate-300 text-sm">
               <span className="text-blue-300 font-bold">{saveLabel}</span> 주소로 등록할 장소를 검색해 선택하세요.

@@ -162,7 +162,7 @@ export function RouteDetail() {
           {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
         </p>
         <p className="text-slate-400 text-sm">목적지를 검색하면 안심 경로를 안내해 드려요.</p>
-        <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
+        <Button onClick={() => navigate('/place-search')} className="rounded-2xl">
           목적지 검색하기
         </Button>
       </div>
@@ -200,7 +200,7 @@ export function RouteDetail() {
       <BottomSheet isOpen={sheetOpen} onClose={() => {}} hideClose>
         <div className="pb-2">
           {/* 목적지 컨텍스트 — 어떤 목적지로 가는 경로인지 명시(실데이터). */}
-          <div className="flex items-center gap-2 mb-4 bg-slate-700 border border-slate-600 rounded-[16px] px-3.5 py-2.5">
+          <div className="flex items-center gap-2 mb-4 bg-slate-700 border border-slate-600 rounded-2xl px-3.5 py-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" />
             <span className="text-slate-300 text-sm font-medium whitespace-nowrap">
               {hasOrigin ? '현재 위치' : '현재 위치 확인 필요'}
@@ -229,7 +229,7 @@ export function RouteDetail() {
           </div>
 
           {hasOrigin && (
-            <div className="rounded-[20px] border border-slate-600 bg-slate-700 px-4 py-4 mb-5">
+            <div className="rounded-2xl border border-slate-600 bg-slate-700 px-4 py-4 mb-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <p className="text-slate-50 font-bold">경로 주변 안심 시설</p>
                 <span className="text-slate-400 text-sm">
@@ -256,7 +256,7 @@ export function RouteDetail() {
 
           <div className="flex flex-col gap-3">
             {!hasOrigin && (
-              <div className="rounded-[20px] border border-slate-600 bg-slate-700 px-4 py-4">
+              <div className="rounded-2xl border border-slate-600 bg-slate-700 px-4 py-4">
                 <div className="flex gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-500/15 border border-blue-400/30 flex items-center justify-center text-blue-300 shrink-0">
                     <LocateFixed className="w-5 h-5" />
@@ -272,7 +272,7 @@ export function RouteDetail() {
             <Button
               data-testid="start-navigation-btn"
               size="lg"
-              className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-[24px]"
+              className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-3xl"
               onClick={hasOrigin ? () => navigate('/navigate', { state: { routeId: route.id } }) : requestOrigin}
               disabled={originLoading}
             >
@@ -281,10 +281,10 @@ export function RouteDetail() {
             </Button>
             
             <div className="flex gap-3 mt-2">
-              <Button variant="secondary" className="flex-1 rounded-[20px] bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/share')}>
+              <Button variant="secondary" className="flex-1 rounded-2xl bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/share')}>
                 보호자에게 공유
               </Button>
-              <Button variant="outline" className="flex-1 flex gap-2 rounded-[20px]" onClick={() => window.open('https://www.sexoffender.go.kr', '_blank')}>
+              <Button variant="outline" className="flex-1 flex gap-2 rounded-2xl" onClick={() => window.open('https://www.sexoffender.go.kr', '_blank')}>
                 <ShieldAlert className="w-4 h-4 text-slate-300" />
                 알림e 확인
               </Button>
@@ -298,7 +298,7 @@ export function RouteDetail() {
 
 function FacilityCount({ icon, label, count, accent = 'text-blue-300' }: { icon: ReactNode; label: string; count: number; accent?: string }) {
   return (
-    <div className="min-w-0 rounded-[14px] border border-slate-600 bg-slate-800/60 px-2 py-3 text-center">
+    <div className="min-w-0 rounded-xl border border-slate-600 bg-slate-800/60 px-2 py-3 text-center">
       <div className={`mx-auto mb-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 ${accent} [&>svg]:h-4 [&>svg]:w-4`}>
         {icon}
       </div>

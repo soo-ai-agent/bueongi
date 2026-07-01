@@ -231,7 +231,7 @@ export function RouteComparison() {
           {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
         </p>
         <p className="text-slate-400 text-sm">목적지를 검색하면 안심 경로를 안내해 드려요.</p>
-        <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
+        <Button onClick={() => navigate('/place-search')} className="rounded-2xl">
           목적지 검색하기
         </Button>
       </div>
@@ -249,7 +249,7 @@ export function RouteComparison() {
         {/* Editable Destination Header */}
         <div 
           onClick={() => navigate('/place-search')}
-          className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-3 rounded-[20px] border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors group"
+          className="flex-1 flex items-center gap-2 bg-slate-700 px-4 py-3 rounded-2xl border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors group"
         >
           <div className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-sm shrink-0" />
           <span className="text-slate-200 text-sm font-medium whitespace-nowrap">
@@ -285,7 +285,7 @@ export function RouteComparison() {
             <div
               role="radiogroup"
               aria-label="안심 강도"
-              className="mt-3 flex gap-1 rounded-[16px] border border-slate-600 bg-slate-700 p-1"
+              className="mt-3 flex gap-1 rounded-2xl border border-slate-600 bg-slate-700 p-1"
             >
               {SAFETY_PREFERENCE_OPTIONS.map((option) => {
                 const selected = option.value === safetyPreference;
@@ -297,7 +297,7 @@ export function RouteComparison() {
                     data-testid="safety-preference-option"
                     aria-checked={selected}
                     onClick={() => setSafetyPreference(option.value)}
-                    className={`flex-1 rounded-[12px] px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700 ${
+                    className={`flex-1 rounded-xl px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700 ${
                       selected ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-600'
                     }`}
                   >
@@ -311,7 +311,7 @@ export function RouteComparison() {
 
         <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3">
           {!hasOrigin && (
-            <div className="p-5 rounded-[24px] border border-slate-600 bg-slate-700 shadow-sm">
+            <div className="p-5 rounded-3xl border border-slate-600 bg-slate-700 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-full bg-blue-500/15 border border-blue-400/30 flex items-center justify-center text-blue-300 shrink-0">
                   <LocateFixed className="w-5 h-5" />
@@ -326,7 +326,7 @@ export function RouteComparison() {
                     type="button"
                     onClick={requestOrigin}
                     disabled={originLoading}
-                    className="mt-4 rounded-[20px]"
+                    className="mt-4 rounded-2xl"
                     fullWidth
                   >
                     {originLoading ? <LoaderCircle className="w-5 h-5 mr-2 animate-spin" /> : <LocateFixed className="w-5 h-5 mr-2" />}
@@ -347,7 +347,7 @@ export function RouteComparison() {
               key={route.id}
               data-testid="route-option"
               onPointerEnter={() => setActivePreviewRouteType(route.type)}
-              className={`p-5 rounded-[24px] border transition-all ${
+              className={`p-5 rounded-3xl border transition-all ${
                 route.type === previewRouteType
                   ? 'bg-slate-700 border-blue-400/50 shadow-sm' 
                   : 'bg-slate-700 border-slate-600 hover:bg-slate-600 shadow-sm'
@@ -360,7 +360,7 @@ export function RouteComparison() {
                 onClick={() => setActivePreviewRouteType(route.type)}
                 onFocus={() => setActivePreviewRouteType(route.type)}
                 onPointerEnter={() => setActivePreviewRouteType(route.type)}
-                className="block w-full rounded-[18px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700"
+                className="block w-full rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-700"
               >
                 <div className="flex justify-between items-start mb-2.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -393,7 +393,7 @@ export function RouteComparison() {
                   data-testid="route-detail-link"
                   aria-label={`${route.name} 경로 보기`}
                   onClick={() => navigate(`/route/${route.type}`)}
-                  className="rounded-[18px]"
+                  className="rounded-2xl"
                 >
                   <Navigation2 className="w-4 h-4 mr-1.5" />
                   경로 보기

@@ -53,7 +53,7 @@ export function EmergencyContact() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-8 pb-24 space-y-6">
-        <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-[20px] flex gap-3">
+        <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex gap-3">
           <AlertCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
           <p className="text-slate-300 text-sm leading-relaxed">
             위급 상황에서 길안내 화면의 '긴급 도움'을 누르면 112 전화, 보호자에게 바로 전화, 위치 링크가 담긴 긴급 메시지 공유를 한 번에 할 수 있어요. 여기에 보호자를 등록해 두세요. (최대 {MAX_CONTACTS}명)
@@ -68,8 +68,8 @@ export function EmergencyContact() {
           )}
 
           {contacts.map((contact) => (
-            <div key={contact.id} className="bg-slate-700 border border-slate-600 rounded-[24px] p-5 flex items-center gap-4 shadow-sm relative group overflow-hidden">
-              <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-400 rounded-l-[24px]"></div>
+            <div key={contact.id} className="bg-slate-700 border border-slate-600 rounded-3xl p-5 flex items-center gap-4 shadow-sm relative group overflow-hidden">
+              <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-400 rounded-l-3xl"></div>
               <div className="w-12 h-12 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center text-slate-400">
                 <UserCircle2 className="w-6 h-6" />
               </div>
@@ -97,7 +97,7 @@ export function EmergencyContact() {
           ))}
 
           {adding ? (
-            <form onSubmit={handleAdd} className="bg-slate-700 border border-slate-600 rounded-[24px] p-5 space-y-3 shadow-sm">
+            <form onSubmit={handleAdd} className="bg-slate-700 border border-slate-600 rounded-3xl p-5 space-y-3 shadow-sm">
               <input
                 autoFocus
                 type="text"
@@ -105,7 +105,7 @@ export function EmergencyContact() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={20}
-                className="w-full bg-slate-800 border border-slate-600 rounded-[16px] px-4 py-3 text-slate-50 placeholder:text-slate-500 outline-none focus:border-blue-400 transition-colors"
+                className="w-full bg-slate-800 border border-slate-600 rounded-2xl px-4 py-3 text-slate-50 placeholder:text-slate-500 outline-none focus:border-blue-400 transition-colors"
               />
               <input
                 type="tel"
@@ -113,13 +113,13 @@ export function EmergencyContact() {
                 placeholder="전화번호 (예: 010-1234-5678)"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded-[16px] px-4 py-3 text-slate-50 placeholder:text-slate-500 outline-none focus:border-blue-400 transition-colors"
+                className="w-full bg-slate-800 border border-slate-600 rounded-2xl px-4 py-3 text-slate-50 placeholder:text-slate-500 outline-none focus:border-blue-400 transition-colors"
               />
               <div className="flex gap-2 pt-1">
-                <Button type="button" variant="secondary" className="flex-1 rounded-[16px]" onClick={resetForm}>
+                <Button type="button" variant="secondary" className="flex-1 rounded-2xl" onClick={resetForm}>
                   취소
                 </Button>
-                <Button type="submit" className="flex-1 rounded-[16px]">
+                <Button type="submit" className="flex-1 rounded-2xl">
                   등록
                 </Button>
               </div>
@@ -128,7 +128,7 @@ export function EmergencyContact() {
             contacts.length < MAX_CONTACTS && (
               <button
                 onClick={() => setAdding(true)}
-                className="w-full bg-slate-700/50 border border-slate-600 border-dashed rounded-[24px] p-6 flex flex-col items-center justify-center gap-3 hover:bg-slate-700 transition-colors group"
+                className="w-full bg-slate-700/50 border border-slate-600 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-slate-700 transition-colors group"
               >
                 <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
                   <Plus className="w-6 h-6" />

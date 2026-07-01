@@ -81,7 +81,7 @@ export function Home() {
         <div
           data-testid="home-search-trigger"
           onClick={() => navigate('/place-search')}
-          className="w-full bg-slate-700 border border-slate-600 rounded-[28px] p-5 flex items-center gap-4 cursor-text shadow-md hover:shadow-lg transition-shadow"
+          className="w-full bg-slate-700 border border-slate-600 rounded-3xl p-5 flex items-center gap-4 cursor-text shadow-md hover:shadow-lg transition-shadow"
         >
           <Search className="w-6 h-6 text-emerald-400 ml-1" />
           <span className="text-slate-300 text-lg flex-1">어디로 가시나요?</span>
@@ -94,7 +94,7 @@ export function Home() {
               key={place.key}
               onClick={() => handleQuickPlace(place)}
               aria-label={place.isSet ? `${place.label}으로 안내` : `${place.label} 등록하기`}
-              className={`flex flex-col items-center justify-center py-5 bg-slate-700 border rounded-[24px] hover:bg-slate-600 transition-colors shadow-sm gap-3 active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-5 bg-slate-700 border rounded-3xl hover:bg-slate-600 transition-colors shadow-sm gap-3 active:scale-95 ${
                 place.isSet ? 'border-slate-600' : 'border-dashed border-slate-500'
               }`}
             >
@@ -113,7 +113,7 @@ export function Home() {
             <Clock className="w-4 h-4" />
             최근 목적지
           </h3>
-          <div className="flex flex-col bg-slate-700 border border-slate-600 rounded-[24px] shadow-sm divide-y divide-slate-600 overflow-hidden mb-6">
+          <div className="flex flex-col bg-slate-700 border border-slate-600 rounded-3xl shadow-sm divide-y divide-slate-600 overflow-hidden mb-6">
             {recentDestinations.length === 0 && (
               <div className="p-5 text-slate-400 text-sm">최근 목적지가 없어요.</div>
             )}
@@ -143,8 +143,8 @@ export function Home() {
             </div>
             <span className="text-[10px] text-slate-500 font-medium px-1">AD</span>
           </div>
-          <button className="w-full bg-slate-700 border border-slate-600 rounded-[24px] shadow-sm flex items-center gap-4 p-4 hover:bg-slate-600 transition-colors text-left group">
-            <div className="w-12 h-12 rounded-[16px] bg-slate-800 border border-slate-600 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
+          <button className="w-full bg-slate-700 border border-slate-600 rounded-3xl shadow-sm flex items-center gap-4 p-4 hover:bg-slate-600 transition-colors text-left group">
+            <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-600 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
               <span className="text-2xl">🛍️</span>
             </div>
             <div className="flex-1 overflow-hidden">

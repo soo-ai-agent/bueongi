@@ -195,7 +195,7 @@ export function Onboarding() {
                 value={gName}
                 onChange={(e) => setGName(e.target.value)}
                 maxLength={20}
-                className="w-full bg-slate-700 border border-slate-600 rounded-[16px] px-4 py-3.5 text-slate-50 placeholder:text-slate-500 outline-none focus:border-emerald-400 transition-colors text-left"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3.5 text-slate-50 placeholder:text-slate-500 outline-none focus:border-emerald-400 transition-colors text-left"
               />
               <input
                 data-testid="onboarding-guardian-phone"
@@ -204,7 +204,7 @@ export function Onboarding() {
                 placeholder="전화번호 (예: 010-1234-5678)"
                 value={gPhone}
                 onChange={(e) => setGPhone(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-[16px] px-4 py-3.5 text-slate-50 placeholder:text-slate-500 outline-none focus:border-emerald-400 transition-colors text-left"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3.5 text-slate-50 placeholder:text-slate-500 outline-none focus:border-emerald-400 transition-colors text-left"
               />
             </div>
           )}

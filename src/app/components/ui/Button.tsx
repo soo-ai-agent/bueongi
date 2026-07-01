@@ -27,7 +27,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             'border border-slate-500 bg-transparent text-slate-200 hover:bg-slate-600': variant === 'outline',
             'h-9 px-4 text-sm': size === 'sm',
             'h-12 px-6 text-base': size === 'md',
-            'h-14 px-8 text-lg font-semibold rounded-2xl': size === 'lg',
+            // 큰 CTA는 카드 반경(3xl=24px)과 맞춰 화면 위계를 통일한다.
+            'h-14 px-8 text-lg font-semibold rounded-3xl': size === 'lg',
             'h-12 w-12 rounded-2xl': size === 'icon',
             'w-full': fullWidth,
           },

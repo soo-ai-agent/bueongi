@@ -20,7 +20,7 @@ export function ConfirmLocation() {
         <p className="text-slate-300 font-medium">
           {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
         </p>
-        <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
+        <Button onClick={() => navigate('/place-search')} className="rounded-2xl">
           목적지 검색하기
         </Button>
       </div>
@@ -59,7 +59,7 @@ export function ConfirmLocation() {
         </div>
 
         <h2 className="text-xl font-bold text-slate-50 mb-4">이 목적지가 맞나요?</h2>
-        <div className="flex items-center gap-4 bg-slate-700 p-4 rounded-[24px] border border-slate-600 mb-8 shadow-sm">
+        <div className="flex items-center gap-4 bg-slate-700 p-4 rounded-3xl border border-slate-600 mb-8 shadow-sm">
           <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center text-emerald-400 border border-slate-600">
             <MapPin className="w-6 h-6" />
           </div>
@@ -69,7 +69,7 @@ export function ConfirmLocation() {
           </div>
         </div>
 
-        <Button data-testid="confirm-route-btn" size="lg" fullWidth className="h-16 text-lg rounded-[24px]" onClick={handleConfirm}>
+        <Button data-testid="confirm-route-btn" size="lg" fullWidth className="h-16 text-lg rounded-3xl" onClick={handleConfirm}>
           안심 경로 보기
         </Button>
       </div>

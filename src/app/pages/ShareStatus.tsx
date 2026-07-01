@@ -162,7 +162,7 @@ export function ShareStatus() {
           <button
             data-testid="share-kakao-btn"
             onClick={handleKakao}
-            className="w-full bg-[#FEE500] text-[#191919] rounded-[20px] p-5 flex items-center justify-center font-bold text-lg hover:bg-[#F4DC00] transition-colors active:scale-95 shadow-sm"
+            className="w-full bg-[#FEE500] text-[#191919] rounded-2xl p-5 flex items-center justify-center font-bold text-lg hover:bg-[#F4DC00] transition-colors active:scale-95 shadow-sm"
           >
             <svg viewBox="0 0 24 24" className="w-6 h-6 mr-2 fill-current">
               <path d="M12 3c-5.523 0-10 3.51-10 7.846 0 2.808 1.83 5.26 4.654 6.6l-1.187 4.318a.385.385 0 0 0 .584.417l5.076-3.376A10.3 10.3 0 0 0 12 18.692c5.523 0 10-3.51 10-7.846C22 6.51 17.523 3 12 3" />
@@ -172,7 +172,7 @@ export function ShareStatus() {
 
           <button
             onClick={handleSms}
-            className="w-full bg-slate-700 text-blue-300 border border-slate-600 rounded-[20px] p-5 flex items-center justify-center font-bold text-lg hover:bg-slate-600 transition-colors active:scale-95 shadow-sm"
+            className="w-full bg-slate-700 text-blue-300 border border-slate-600 rounded-2xl p-5 flex items-center justify-center font-bold text-lg hover:bg-slate-600 transition-colors active:scale-95 shadow-sm"
           >
             <Send className="w-5 h-5 mr-2" />
             문자 메시지(SMS)
@@ -180,7 +180,7 @@ export function ShareStatus() {
 
           <button
             onClick={() => copyToClipboard('공유 링크를 복사했어요.')}
-            className="w-full bg-transparent border border-slate-600 text-slate-200 rounded-[20px] p-5 flex items-center justify-center font-medium text-lg hover:bg-slate-700 transition-colors shadow-sm active:scale-95"
+            className="w-full bg-transparent border border-slate-600 text-slate-200 rounded-2xl p-5 flex items-center justify-center font-medium text-lg hover:bg-slate-700 transition-colors shadow-sm active:scale-95"
           >
             <Copy className="w-5 h-5 mr-2 text-slate-300" />
             링크 복사하기
@@ -193,7 +193,7 @@ export function ShareStatus() {
           <button
             data-testid="share-preview-btn"
             onClick={() => navigate('/share/preview')}
-            className="w-full bg-slate-700/60 border border-slate-600 text-slate-200 rounded-[20px] p-4 flex items-center justify-center gap-2 font-medium hover:bg-slate-700 transition-colors shadow-sm active:scale-95"
+            className="w-full bg-slate-700/60 border border-slate-600 text-slate-200 rounded-2xl p-4 flex items-center justify-center gap-2 font-medium hover:bg-slate-700 transition-colors shadow-sm active:scale-95"
           >
             <Eye className="w-5 h-5 text-blue-300" />
             보호자에게 보이는 화면 미리보기

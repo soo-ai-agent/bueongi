@@ -37,7 +37,7 @@ export function MyPage() {
         {/* Places */}
         <section>
           <h3 className="text-slate-200 font-bold mb-3 px-1">자주 가는 장소</h3>
-          <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
+          <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
             {places.map((item, i) => (
               <div
                 key={i}
@@ -68,7 +68,7 @@ export function MyPage() {
         {/* Emergency Contacts */}
         <section>
           <h3 className="text-slate-200 font-bold mb-3 px-1">긴급 연락처</h3>
-          <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden shadow-sm">
+          <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden shadow-sm">
             <div className="flex items-center gap-4 p-5">
               <div className="p-2.5 bg-red-500/20 rounded-full text-red-400 border border-red-500/30"><Phone className="w-5 h-5" /></div>
               <div className="flex-1 min-w-0">
@@ -77,7 +77,7 @@ export function MyPage() {
               </div>
               <button
                 onClick={() => navigate('/emergency-contacts')}
-                className="px-4 py-2 bg-slate-600 border border-slate-500 text-slate-200 text-sm rounded-[16px] font-bold hover:bg-slate-500 active:scale-95 transition-all"
+                className="px-4 py-2 bg-slate-600 border border-slate-500 text-slate-200 text-sm rounded-2xl font-bold hover:bg-slate-500 active:scale-95 transition-all"
               >
                 관리
               </button>
@@ -88,7 +88,7 @@ export function MyPage() {
         {/* Settings */}
         <section>
           <h3 className="text-slate-200 font-bold mb-3 px-1">설정 및 안내</h3>
-          <div className="bg-slate-700 rounded-[24px] border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
+          <div className="bg-slate-700 rounded-3xl border border-slate-600 overflow-hidden divide-y divide-slate-600 shadow-sm">
             <div className="flex items-center gap-3 p-5">
               <div className="p-2.5 bg-slate-800 rounded-full text-slate-300 shrink-0"><Bell className="w-5 h-5" /></div>
               <div className="flex-1">

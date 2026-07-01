@@ -48,7 +48,7 @@ export function RouteErrorBoundary() {
             {!isNotFound && (
               <button
                 onClick={reload}
-                className="w-full h-14 rounded-[20px] bg-blue-500 hover:bg-blue-400 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-[0_8px_20px_rgba(37,99,235,0.2)]"
+                className="w-full h-14 rounded-2xl bg-blue-500 hover:bg-blue-400 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-[0_8px_20px_rgba(37,99,235,0.2)]"
               >
                 <RefreshCw className="w-5 h-5" />
                 새로고침
@@ -56,7 +56,7 @@ export function RouteErrorBoundary() {
             )}
             <button
               onClick={goHome}
-              className={`w-full h-14 rounded-[20px] font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 ${
+              className={`w-full h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 ${
                 isNotFound
                   ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-[0_8px_20px_rgba(37,99,235,0.2)]'
                   : 'bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600'

@@ -308,7 +308,7 @@ export function NavigationScreen() {
           {hasDestination ? '목적지 위치를 다시 확인해 주세요' : '선택된 목적지가 없어요'}
         </p>
         <p className="text-slate-400 text-sm">목적지를 검색하면 안심 경로로 동행해 드려요.</p>
-        <Button onClick={() => navigate('/place-search')} className="rounded-[20px]">
+        <Button onClick={() => navigate('/place-search')} className="rounded-2xl">
           목적지 검색하기
         </Button>
       </div>
@@ -353,7 +353,7 @@ export function NavigationScreen() {
             (단계 없을 때 뜨던 "경로를 따라 이동해 주세요" 기본 안내 팝업은 제거.) */}
         {currentStep && (
           <div className="mt-3 max-w-[340px] mx-auto pointer-events-auto">
-            <div className="bg-slate-900/80 backdrop-blur-md text-slate-50 rounded-[24px] shadow-lg border border-slate-700 px-5 py-4 flex items-center gap-4">
+            <div className="bg-slate-900/80 backdrop-blur-md text-slate-50 rounded-3xl shadow-lg border border-slate-700 px-5 py-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
                 <GuideIcon className="w-7 h-7 text-emerald-300" />
               </div>
@@ -400,10 +400,10 @@ export function NavigationScreen() {
         </div>
 
         <div className="flex gap-3">
-          <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-[20px] px-6" onClick={() => navigate('/share')}>
+          <Button data-testid="nav-share-btn" variant="outline" className="h-14 rounded-2xl px-6" onClick={() => navigate('/share')}>
             <Share2 className="w-5 h-5" />
           </Button>
-          <Button className="flex-1 h-14 rounded-[20px] bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold" onClick={handleArrived}>
+          <Button className="flex-1 h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold" onClick={handleArrived}>
             <HomeIcon className="w-5 h-5 mr-2" />
             귀가 완료
           </Button>
@@ -431,17 +431,17 @@ export function NavigationScreen() {
           )}
           <div className="flex flex-col gap-3 w-full">
             {primaryContact ? (
-              <Button size="lg" fullWidth className="h-16 rounded-[24px]" onClick={handleNotifyArrival}>
+              <Button size="lg" fullWidth className="h-16 rounded-3xl" onClick={handleNotifyArrival}>
                 <Share2 className="w-5 h-5 mr-2" />
                 보호자에게 귀가 알리기
               </Button>
             ) : (
-              <Button size="lg" fullWidth className="h-16 rounded-[24px]" onClick={() => navigate('/emergency-contacts')}>
+              <Button size="lg" fullWidth className="h-16 rounded-3xl" onClick={() => navigate('/emergency-contacts')}>
                 <Phone className="w-5 h-5 mr-2" />
                 보호자 등록하기
               </Button>
             )}
-            <Button variant="secondary" fullWidth className="h-14 rounded-[24px] bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/home', { state: { showAdPopup: true } })}>
+            <Button variant="secondary" fullWidth className="h-14 rounded-3xl bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/home', { state: { showAdPopup: true } })}>
               홈으로 돌아가기
             </Button>
           </div>
@@ -470,7 +470,7 @@ export function NavigationScreen() {
               data-testid="checkin-notify-btn"
               size="lg"
               fullWidth
-              className="h-16 rounded-[24px] bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold"
+              className="h-16 rounded-3xl bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold"
               onClick={handleCheckInNotify}
             >
               <Share2 className="w-5 h-5 mr-2" />
@@ -480,7 +480,7 @@ export function NavigationScreen() {
               data-testid="checkin-snooze-btn"
               variant="secondary"
               fullWidth
-              className="h-14 rounded-[24px] bg-slate-600 text-slate-200 hover:bg-slate-500"
+              className="h-14 rounded-3xl bg-slate-600 text-slate-200 hover:bg-slate-500"
               onClick={handleCheckInSnooze}
             >
               <Clock className="w-5 h-5 mr-2" />
@@ -502,7 +502,7 @@ export function NavigationScreen() {
         <div className="flex flex-col gap-4 pb-2">
           <a
             href="tel:112"
-            className="w-full bg-red-500 hover:bg-red-400 text-white rounded-[24px] p-6 flex items-center gap-5 transition-colors shadow-sm active:scale-[0.98]"
+            className="w-full bg-red-500 hover:bg-red-400 text-white rounded-3xl p-6 flex items-center gap-5 transition-colors shadow-sm active:scale-[0.98]"
           >
             <div className="bg-white/20 p-4 rounded-full">
               <PhoneCall className="w-8 h-8" />
@@ -516,7 +516,7 @@ export function NavigationScreen() {
           {primaryContact ? (
             <a
               href={`tel:${sanitizePhone(primaryContact.phone)}`}
-              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-3xl p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
             >
               <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
                 <Phone className="w-6 h-6 text-slate-200" />
@@ -529,7 +529,7 @@ export function NavigationScreen() {
           ) : (
             <button
               onClick={() => navigate('/emergency-contacts')}
-              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+              className="w-full bg-slate-600 hover:bg-slate-500 text-slate-50 border border-slate-500 rounded-3xl p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
             >
               <div className="bg-slate-700 p-3 rounded-full border border-slate-600 shadow-sm">
                 <Phone className="w-6 h-6 text-slate-200" />
@@ -543,7 +543,7 @@ export function NavigationScreen() {
 
           <button
             onClick={handleEmergencyShare}
-            className="w-full bg-slate-700 hover:bg-slate-600 text-slate-50 border border-red-500/40 rounded-[24px] p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
+            className="w-full bg-slate-700 hover:bg-slate-600 text-slate-50 border border-red-500/40 rounded-3xl p-5 flex items-center gap-4 transition-colors active:scale-[0.98]"
           >
             <div className="bg-red-500/20 p-3 rounded-full border border-red-500/30">
               <Share2 className="w-6 h-6 text-red-300" />
@@ -555,11 +555,11 @@ export function NavigationScreen() {
           </button>
 
           <div className="grid grid-cols-3 gap-3 mt-3">
-            <div className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 shadow-sm opacity-60">
+            <div className="bg-slate-700 border border-slate-600 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm opacity-60">
               <div className="p-2 bg-slate-600 rounded-full"><AlertCircle className="w-6 h-6 text-red-400" /></div>
               <span className="text-slate-200 text-sm font-medium">비상벨</span>
             </div>
-            <div className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 shadow-sm opacity-60">
+            <div className="bg-slate-700 border border-slate-600 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm opacity-60">
               <div className="p-2 bg-slate-600 rounded-full"><Search className="w-6 h-6 text-blue-400" /></div>
               <span className="text-slate-200 text-sm font-medium">편의점</span>
             </div>
@@ -567,7 +567,7 @@ export function NavigationScreen() {
               data-testid="nav-find-police"
               onClick={handleFindPolice}
               disabled={policeLoading}
-              className="bg-slate-700 border border-slate-600 p-4 rounded-[20px] flex flex-col items-center gap-2 hover:bg-slate-600 transition-colors shadow-sm active:scale-95 disabled:opacity-60"
+              className="bg-slate-700 border border-slate-600 p-4 rounded-2xl flex flex-col items-center gap-2 hover:bg-slate-600 transition-colors shadow-sm active:scale-95 disabled:opacity-60"
             >
               <div className="p-2 bg-slate-600 rounded-full"><MapPin className="w-6 h-6 text-blue-400" /></div>
               <span className="text-slate-200 text-sm font-medium">{policeLoading ? '검색 중…' : '파출소'}</span>
@@ -580,7 +580,7 @@ export function NavigationScreen() {
               {nearestPoliceList.map((p) => {
                 const tel = toTelHref(p);
                 return (
-                  <div key={p.id} className="bg-slate-700 border border-slate-600 rounded-[20px] p-4 flex items-center gap-3">
+                  <div key={p.id} className="bg-slate-700 border border-slate-600 rounded-2xl p-4 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="text-slate-50 font-bold truncate">{p.name ?? '파출소'}</div>
                       <div className="text-slate-400 text-sm">{formatDistance(p.distanceM)}{p.address ? ` · ${p.address}` : ''}</div>
