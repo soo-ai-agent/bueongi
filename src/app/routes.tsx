@@ -9,7 +9,6 @@ import { NavigationScreen } from "./pages/Navigation";
 import { ShareStatus } from "./pages/ShareStatus";
 import { SharePreview } from "./pages/SharePreview";
 import { GuardianShare } from "./pages/GuardianShare";
-import { MyPage } from "./pages/MyPage";
 import { PlaceSearch } from "./pages/PlaceSearch";
 import { ConfirmLocation } from "./pages/ConfirmLocation";
 import { EmergencyContact } from "./pages/EmergencyContact";
@@ -33,7 +32,6 @@ export const router = createBrowserRouter([
       { path: "share/preview", Component: SharePreview },
       // 보호자 공유 페이지: 로그인 없이 URL(/share/{token})만으로 접근, 5초 폴링.
       { path: "share/:token", Component: GuardianShare },
-      { path: "mypage", Component: MyPage },
       { path: "emergency-contacts", Component: EmergencyContact },
     ],
   },

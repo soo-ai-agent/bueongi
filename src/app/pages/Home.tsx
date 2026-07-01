@@ -1,4 +1,4 @@
-import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, UserCircle, MapPin, X, Plus } from 'lucide-react';
+import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, Users, MapPin, X, Plus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
@@ -71,8 +71,8 @@ export function Home() {
           </div>
           <h1 className="text-2xl font-bold text-slate-50 tracking-tight leading-tight">오늘도 안전하게<br />모실게요.</h1>
         </div>
-        <button onClick={() => navigate('/mypage')} className="w-12 h-12 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-600 transition-colors shadow-sm">
-          <UserCircle className="w-7 h-7" />
+        <button onClick={() => navigate('/emergency-contacts')} aria-label="긴급 연락처 관리" className="w-12 h-12 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-600 transition-colors shadow-sm">
+          <Users className="w-6 h-6" />
         </button>
       </header>
 
