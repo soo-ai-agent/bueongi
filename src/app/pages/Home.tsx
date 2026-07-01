@@ -1,4 +1,4 @@
-import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ShieldAlert, ChevronRight, Users, MapPin, X, Plus } from 'lucide-react';
+import { Search, Home as HomeIcon, GraduationCap, Briefcase, Clock, ChevronRight, Users, MapPin, X, Plus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
@@ -133,7 +133,7 @@ export function Home() {
         </div>
 
         {/* Kakao AdFit Native Mock (Button Style) */}
-        <div className="mb-[80px]">
+        <div className="mb-2">
           <div className="flex items-center justify-between px-2 mb-2">
             <div className="flex items-center gap-1.5">
               <div className="w-3.5 h-3.5 bg-[#FEE500] rounded-sm flex items-center justify-center">
@@ -154,24 +154,6 @@ export function Home() {
             <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-200 transition-colors shrink-0" />
           </button>
         </div>
-      </div>
-
-      {/* Footer Banner */}
-      <div className="absolute bottom-6 inset-x-6 z-20">
-        <a 
-          href="https://www.sexoffender.go.kr"
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-between bg-slate-700 border border-slate-600 p-4 rounded-2xl text-slate-200 hover:bg-slate-600 transition-colors shadow-md active:scale-[0.98]"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-slate-800 rounded-full text-slate-300 border border-slate-600">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <span className="font-medium text-sm">공식 성범죄자알림e 확인</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-slate-400" />
-        </a>
       </div>
 
       {/* Kakao AdFit Interstitial Popup Overlay */}
