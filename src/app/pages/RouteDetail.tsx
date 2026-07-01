@@ -91,7 +91,7 @@ const FACILITY_ICON: Record<SafetyFacilityType, { Icon: typeof Video; color: str
 export function RouteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { destination, routeOrigin, setRouteOrigin, apiRouteOptions } = useApp();
+  const { destination, routeOrigin, setRouteOrigin, apiRouteOptions, commitRecentDestination } = useApp();
   const { canRequestRoute, hasDestination, destinationName } = getRouteDestinationContext(destination);
   const availableRoutes = apiRouteOptions.length > 0 ? apiRouteOptions : mockRoutes;
   const route = resolveRoute(availableRoutes, id) ?? mockRoutes[0];
@@ -273,7 +273,7 @@ export function RouteDetail() {
               data-testid="start-navigation-btn"
               size="lg"
               className="h-16 text-xl shadow-[0_8px_20px_rgba(37,99,235,0.2)] rounded-3xl"
-              onClick={hasOrigin ? () => navigate('/navigate', { state: { routeId: route.id } }) : requestOrigin}
+              onClick={hasOrigin ? () => { if (destination) commitRecentDestination(destination); navigate('/navigate', { state: { routeId: route.id } }); } : requestOrigin}
               disabled={originLoading}
             >
               {hasOrigin ? <Navigation2 className="w-6 h-6 mr-2" /> : originLoading ? <LoaderCircle className="w-6 h-6 mr-2 animate-spin" /> : <LocateFixed className="w-6 h-6 mr-2" />}

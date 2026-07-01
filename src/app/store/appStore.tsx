@@ -74,6 +74,19 @@ function savedPlaceFromDestination(place: Destination | null): SavedPlace {
   return { name: place.name, address: place.address, lat: place.lat, lng: place.lng };
 }
 
+/**
+ * 최근 목적지 목록에 방문지를 반영한다(순수 — provider 밖에서 테스트 가능).
+ * 같은 이름은 중복 없이 맨 앞으로 끌어올리고(최신순), 최대 [MAX_RECENTS]개만 보관한다.
+ * "실제로 안심귀가를 시작한 목적지"만 여기에 쌓인다(단순 검색·선택은 제외 — commitRecentDestination에서 호출).
+ */
+export function addRecentDestination(
+  recents: Destination[],
+  dest: Destination,
+  max: number = MAX_RECENTS,
+): Destination[] {
+  return [dest, ...recents.filter((d) => d.name !== dest.name)].slice(0, max);
+}
+
 /** localStorage 에 저장된 상태가 있는지 — 내장 DB(SQLite) 복원 여부 판단용(없으면 DB 에서 복원 시도). */
 function hadStoredState(): boolean {
   try {
@@ -141,8 +154,10 @@ interface AppStore extends AppState {
   activeShare: ActiveShare | null;
   /** 진행 중 공유 설정/해제. 공유 시작 시 {token, ownerSecret}, 종료 시 null. */
   setActiveShare: (share: ActiveShare | null) => void;
-  /** 목적지 선택 + 최근 목적지에 반영 */
+  /** 목적지 선택(경로 탐색 대상 지정). 최근 목적지에는 넣지 않는다 — 실제 안심귀가 시작 시 commit. */
   selectDestination: (dest: Destination) => void;
+  /** 실제로 안심귀가를 시작한 목적지를 '최근 목적지'에 반영(최신순·중복 제거·최대 5개). */
+  commitRecentDestination: (dest: Destination) => void;
   /** 현재 위치 기반 경로 요청 origin 설정(비영속) */
   setRouteOrigin: (origin: LatLng | null) => void;
   /** compare API 결과를 상세 화면까지 넘기기 위한 세션 전용 경로 후보 설정 */
@@ -211,14 +226,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state, dbReady]);
 
   const selectDestination = (dest: Destination) => {
+    // 목적지만 지정하고 세션 경로 후보를 비운다. 최근 목적지는 실제 안심귀가 시작 시(commitRecentDestination) 쌓인다.
     setApiRouteOptionsState([]);
-    setState((prev) => {
-      const recents = [dest, ...prev.recentDestinations.filter((d) => d.name !== dest.name)].slice(
-        0,
-        MAX_RECENTS,
-      );
-      return { ...prev, destination: dest, recentDestinations: recents };
-    });
+    setState((prev) => ({ ...prev, destination: dest }));
+  };
+
+  const commitRecentDestination = (dest: Destination) => {
+    setState((prev) => ({ ...prev, recentDestinations: addRecentDestination(prev.recentDestinations, dest) }));
   };
 
   const setRouteOrigin = (origin: LatLng | null) => {
@@ -268,6 +282,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     activeShare,
     setActiveShare,
     selectDestination,
+    commitRecentDestination,
     setRouteOrigin,
     setApiRouteOptions,
     setSavedPlace,
