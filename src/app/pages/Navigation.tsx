@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import {
   Phone, AlertCircle, MapPin, Search, PhoneCall, Share2, CheckCircle2, Home as HomeIcon,
   ArrowUp, CornerUpLeft, CornerUpRight, RefreshCw, MoveUp, MoveDown, Navigation2, Footprints,
+  Clock, Timer,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +12,8 @@ import { useLocation, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { useApp } from '../store/appStore';
-import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage } from '../utils/share';
+import { shareOrCopyText, composeEmergencyShareMessage, composeArrivalShareMessage, composeRunningLateShareMessage } from '../utils/share';
+import { expectedArrivalAt, msUntilCheckIn, CHECKIN_SNOOZE_MS } from '../utils/arrivalCheckIn';
 import { endShare, getShareWatching, isShareApiConfigured } from '../utils/shareSession';
 import { mockRoutes } from './RouteComparison';
 import { resolveRouteWithApiOptions, parseEtaMinutes, getRouteDestinationContext, normalizeRouteType } from '../utils/routeSelection';
@@ -85,9 +87,16 @@ export function NavigationScreen() {
 
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [arrivedOpen, setArrivedOpen] = useState(false);
+  // 미도착 안전망(P1-5): 도착 예정시각이 지나도 귀가 완료를 누르지 않으면 보호자 알림 유도 시트를 띄운다.
+  const [navStartedAt] = useState(() => Date.now());
+  const [checkInExtraMs, setCheckInExtraMs] = useState(0);
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [arrived, setArrived] = useState(false);
   const [policeLoading, setPoliceLoading] = useState(false);
   const [nearestPoliceList, setNearestPoliceList] = useState<NearbyPolice[] | null>(null);
   const [timeLeft, setTimeLeft] = useState(() => parseEtaMinutes(routeOption.time, 24)); // mins
+  // 출발 시점의 ETA(분) — 미도착 안전망의 '도착 예정시각' 기준. 이후 남은시간 감소와 무관하게 고정.
+  const [initialEtaMin] = useState(() => parseEtaMinutes(routeOption.time, 24));
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [livePosition, setLivePosition] = useState<LatLng | null>(routeOrigin ?? null);
   const [remainingDistanceM, setRemainingDistanceM] = useState<number | null>(null);
@@ -161,6 +170,18 @@ export function NavigationScreen() {
       clearInterval(timer);
     };
   }, [activeShare]);
+
+  // 미도착 안전망: 예정 도착 시각(출발 + ETA + 여유 + 누적 연장)에 맞춰 타이머를 걸고,
+  // 그 시각까지 귀가 완료(arrived)를 누르지 않으면 보호자 알림 유도 시트를 연다.
+  // 자동 전송/푸시는 없다 — 시트에서 사용자가 직접 '보호자에게 알리기'를 눌러야 공유된다.
+  // 연장('조금 더 걸려요')하면 checkInExtraMs가 늘며 effect가 다음 시각으로 다시 예약한다.
+  useEffect(() => {
+    if (arrived || !canRequestRoute) return;
+    const target = expectedArrivalAt(navStartedAt, initialEtaMin, checkInExtraMs);
+    const delay = Math.max(0, msUntilCheckIn(target, Date.now()));
+    const id = setTimeout(() => setCheckInOpen(true), delay);
+    return () => clearTimeout(id);
+  }, [arrived, canRequestRoute, navStartedAt, initialEtaMin, checkInExtraMs]);
 
   const currentStep: NavStep | null = steps[currentStepIdx] ?? null;
   const guide = currentStep ? turnGuide(currentStep.turnType) : null;
@@ -244,7 +265,34 @@ export function NavigationScreen() {
       void endShare(activeShare.token, { ownerSecret: activeShare.ownerSecret }).catch(() => {});
       setActiveShare(null);
     }
+    // 도착 처리 → 미도착 안전망 타이머 해제 + 혹시 떠 있던 체크인 시트 닫기.
+    setArrived(true);
+    setCheckInOpen(false);
     setArrivedOpen(true);
+  };
+
+  // 미도착 안전망 — 보호자에게 지연을 알린다(자동 전송 아님, 사용자 액션). 공유 중이면 실시간 위치 링크를 함께 보낸다.
+  const handleCheckInNotify = async () => {
+    const outcome = await shareOrCopyText({
+      title: '부엉이 안심귀가',
+      text: composeRunningLateShareMessage(destinationName, activeShare?.shareUrl ?? null),
+    });
+    if (outcome === 'shared') {
+      toast('보호자에게 지연 상황을 알렸어요.', { icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" /> });
+    } else if (outcome === 'copied') {
+      toast('지연 안내 메시지를 복사했어요. 보호자에게 보내 주세요.', {
+        icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+      });
+    } else if (outcome === 'failed') {
+      toast.error('알림 전송에 실패했어요. 다시 시도해 주세요.');
+    }
+    if (outcome !== 'cancelled') setCheckInOpen(false);
+  };
+
+  // 미도착 안전망 — '조금 더 걸려요': 예정시각을 5분 연장하고 시트를 닫는다(effect가 다음 시각으로 재예약).
+  const handleCheckInSnooze = () => {
+    setCheckInExtraMs((prev) => prev + CHECKIN_SNOOZE_MS);
+    setCheckInOpen(false);
   };
 
   // 목적지/좌표가 없으면(직접 진입·새로고침·state 소실·구버전 저장데이터) 가짜 "목적지로 가는 중" 길안내를 띄우거나
@@ -396,6 +444,55 @@ export function NavigationScreen() {
             <Button variant="secondary" fullWidth className="h-14 rounded-[24px] bg-slate-600 text-slate-200 hover:bg-slate-500" onClick={() => navigate('/home', { state: { showAdPopup: true } })}>
               홈으로 돌아가기
             </Button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* 미도착 안전망 체크인 시트(P1-5) — 예정 도착 시간이 지나도 미도착일 때 보호자 알림을 유도한다.
+          자동 전송/푸시는 없다. 사용자가 '보호자에게 알리기'를 눌러야 실제 공유된다. */}
+      <BottomSheet isOpen={checkInOpen} onClose={() => setCheckInOpen(false)}>
+        <div data-testid="checkin-sheet" className="flex flex-col items-center text-center pb-4 pt-2">
+          <div className="w-20 h-20 bg-amber-500/15 border border-amber-400/30 rounded-full flex items-center justify-center mb-5">
+            <Timer className="w-9 h-9 text-amber-300" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-50 mb-2">도착 예정 시간이 지났어요</h2>
+          {primaryContact ? (
+            <p className="text-slate-300 mb-7 leading-relaxed">
+              아직 이동 중이신가요?<br />{primaryContact.name} 보호자에게 상황을 알려 안심시켜 드리세요.
+            </p>
+          ) : (
+            <p className="text-slate-300 mb-7 leading-relaxed">
+              아직 이동 중이신가요?<br />보호자에게 현재 상황을 공유해 안심시켜 드리세요.
+            </p>
+          )}
+          <div className="flex flex-col gap-3 w-full">
+            <Button
+              data-testid="checkin-notify-btn"
+              size="lg"
+              fullWidth
+              className="h-16 rounded-[24px] bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold"
+              onClick={handleCheckInNotify}
+            >
+              <Share2 className="w-5 h-5 mr-2" />
+              보호자에게 알리기
+            </Button>
+            <Button
+              data-testid="checkin-snooze-btn"
+              variant="secondary"
+              fullWidth
+              className="h-14 rounded-[24px] bg-slate-600 text-slate-200 hover:bg-slate-500"
+              onClick={handleCheckInSnooze}
+            >
+              <Clock className="w-5 h-5 mr-2" />
+              조금 더 걸려요 (5분)
+            </Button>
+            <button
+              data-testid="checkin-arrived-btn"
+              onClick={handleArrived}
+              className="text-slate-400 text-sm font-medium py-1 hover:text-slate-200 transition-colors"
+            >
+              벌써 도착했어요
+            </button>
           </div>
         </div>
       </BottomSheet>

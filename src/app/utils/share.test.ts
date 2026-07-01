@@ -5,9 +5,11 @@ import {
   buildEmergencyShareText,
   buildReturnShareText,
   buildArrivalShareText,
+  buildRunningLateShareText,
   composeReturnShareMessage,
   composeEmergencyShareMessage,
   composeArrivalShareMessage,
+  composeRunningLateShareMessage,
 } from './share';
 
 describe('isUserCancelledShare', () => {
@@ -193,5 +195,40 @@ describe('composeArrivalShareMessage', () => {
 
   it('목적지가 비면 기본 라벨로 폴백', () => {
     expect(composeArrivalShareMessage('', null)).toBe('[부엉이 안심귀가] 목적지에 안전하게 도착했습니다.');
+  });
+});
+
+describe('buildRunningLateShareText', () => {
+  it('도착 예정 시간 경과 + 이동 중 + 목적지를 포함한다(미도착 안전망)', () => {
+    const msg = buildRunningLateShareText('강남역 2번 출구');
+    expect(msg).toContain('강남역 2번 출구');
+    expect(msg).toContain('부엉이 안심귀가');
+    expect(msg).toContain('도착 예정 시간이 지났어요');
+    expect(msg).toContain('이동 중');
+  });
+
+  it('목적지가 비면 빈 라벨 없이 기본 라벨로 폴백', () => {
+    expect(buildRunningLateShareText('')).toContain('목적지 도착 예정 시간이 지났어요');
+    expect(buildRunningLateShareText('   ')).toContain('목적지 도착 예정 시간이 지났어요');
+  });
+});
+
+describe('composeRunningLateShareMessage', () => {
+  it('공유 링크가 있으면 지연 메시지 + 링크를 포함한다', () => {
+    const msg = composeRunningLateShareMessage('강남역', 'https://app.test/share/abc123');
+    expect(msg).toContain('도착 예정 시간이 지났어요');
+    expect(msg).toContain('강남역');
+    expect(msg).toContain('https://app.test/share/abc123');
+  });
+
+  it('링크가 없으면 깨진 링크 없이 지연 사실만 정직하게 전한다', () => {
+    const msg = composeRunningLateShareMessage('강남역', null);
+    expect(msg).toContain('도착 예정 시간이 지났어요');
+    expect(msg).not.toContain('http');
+    expect(msg).not.toContain('/share');
+  });
+
+  it('빈 문자열 링크도 링크 없음으로 취급(깨진 링크 방지)', () => {
+    expect(composeRunningLateShareMessage('강남역', '   ')).not.toContain('http');
   });
 });

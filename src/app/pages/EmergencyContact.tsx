@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { useApp, MAX_CONTACTS } from '../store/appStore';
+import { validateContactInput } from '../utils/contactValidation';
 
 export function EmergencyContact() {
   const navigate = useNavigate();
@@ -20,20 +21,13 @@ export function EmergencyContact() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = name.trim();
-    const trimmedPhone = phone.trim();
-    if (!trimmedName || !trimmedPhone) {
-      toast.error('이름과 전화번호를 모두 입력해 주세요.');
+    // 위급 시 실제 발신 가능한 번호인지 검증(온보딩 보호자 등록과 동일 규칙 — contactValidation).
+    const valid = validateContactInput(name, phone);
+    if (!valid.ok) {
+      toast.error(valid.error!);
       return;
     }
-    // 위급 시 실제 발신 가능한 번호인지 검증. 숫자 외 입력(이름 오기재 등)이 등록되면
-    // 긴급 도움 시트의 tel: 링크가 빈 번호가 되어 전화가 걸리지 않는다.
-    const digits = trimmedPhone.replace(/[^0-9]/g, '');
-    if (digits.length < 9 || digits.length > 11) {
-      toast.error('올바른 전화번호를 입력해 주세요. (예: 010-1234-5678)');
-      return;
-    }
-    const { added, persisted } = addContact(trimmedName, trimmedPhone);
+    const { added, persisted } = addContact(valid.name, valid.phone);
     if (!added) {
       toast.error(`긴급 연락처는 최대 ${MAX_CONTACTS}명까지 등록할 수 있어요.`);
       return;
@@ -44,7 +38,7 @@ export function EmergencyContact() {
       resetForm();
       return;
     }
-    toast(`${trimmedName} 연락처를 등록했어요.`);
+    toast(`${valid.name} 연락처를 등록했어요.`);
     resetForm();
   };
 

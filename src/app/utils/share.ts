@@ -124,3 +124,23 @@ export function buildArrivalShareText(destName: string): string {
   const where = destName.trim() || '목적지';
   return `[부엉이 안심귀가] ${where}에 안전하게 도착했습니다.`;
 }
+
+/**
+ * 도착 예정시각이 지났는데 아직 이동 중일 때(미도착 안전망) 보호자에게 보낼 메시지 본문을 만든다.
+ * 목적지를 포함해 수신자가 행선지를 알 수 있게 한다(빈 목적지는 안전 기본 라벨로 폴백).
+ */
+export function buildRunningLateShareText(destName: string): string {
+  const where = destName.trim() || '목적지';
+  return `[부엉이 안심귀가] ${where} 도착 예정 시간이 지났어요. 아직 이동 중이니 위치를 확인해 주세요.`;
+}
+
+/**
+ * 미도착 안전망 알림을 보호자에게 보낼 전문(메시지 + 선택적 위치 링크)으로 합성한다.
+ * composeArrivalShareMessage와 동일한 정직성 계약: 실제 공유 링크가 있으면 붙이고,
+ * 없으면(공유 미시작) 링크 없이 지연 사실만 전한다.
+ */
+export function composeRunningLateShareMessage(destName: string, liveLocationUrl: string | null): string {
+  const text = buildRunningLateShareText(destName);
+  const url = liveLocationUrl?.trim();
+  return url ? `${text}\n${url}` : text;
+}
